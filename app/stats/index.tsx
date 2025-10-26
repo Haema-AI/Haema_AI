@@ -1,8 +1,10 @@
 import { BrandColors, Shadows } from '@/constants/theme';
 import { useRecordsStore } from '@/store/recordsStore';
 import { useMemo } from 'react';
-import { ScrollView, Text, View } from 'react-native';
+import { ScrollView, Text, View, useWindowDimensions } from 'react-native';
+import type { StyleProp, ViewStyle } from 'react-native';
 import { VictoryAxis, VictoryBar, VictoryChart, VictoryLine, VictoryTheme } from 'victory-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface DailyDataPoint {
   label: string;
@@ -25,6 +27,9 @@ const formatDayKey = (date: Date) => date.toISOString().slice(0, 10);
 
 export default function Stats() {
   const { records } = useRecordsStore();
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const stackSummaryCards = width < 520;
 
   const { summary, dailyTrend } = useMemo(() => {
     if (records.length === 0) {
@@ -94,9 +99,15 @@ export default function Stats() {
   }, [records]);
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: BrandColors.background }}
-      contentContainerStyle={{ padding: 24, gap: 24, paddingBottom: 48 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: BrandColors.background }} edges={['top', 'left', 'right']}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          paddingHorizontal: 24,
+          paddingTop: 24,
+          gap: 24,
+          paddingBottom: 48 + insets.bottom,
+        }}>
       <View style={{ gap: 6 }}>
         <Text style={{ fontSize: 30, fontWeight: '800', color: BrandColors.textPrimary }}>건강 통계</Text>
         <Text style={{ color: BrandColors.textSecondary, lineHeight: 22 }}>
@@ -104,10 +115,25 @@ export default function Stats() {
         </Text>
       </View>
 
-      <View style={{ flexDirection: 'row', gap: 16 }}>
-        <SummaryCard label="저장된 대화" value={`${summary.total}회`} accent={BrandColors.primary} />
-        <SummaryCard label="평균 위험 지수" value={`${summary.averageRisk}`} accent={BrandColors.primaryDark} />
-        <SummaryCard label="평균 감정 점수" value={`${summary.averageMood}`} accent={BrandColors.accent} />
+      <View style={{ flexDirection: stackSummaryCards ? 'column' : 'row', gap: 16 }}>
+        <SummaryCard
+          label="저장된 대화"
+          value={`${summary.total}회`}
+          accent={BrandColors.primary}
+          style={stackSummaryCards ? { width: '100%' } : undefined}
+        />
+        <SummaryCard
+          label="평균 위험 지수"
+          value={`${summary.averageRisk}`}
+          accent={BrandColors.primaryDark}
+          style={stackSummaryCards ? { width: '100%' } : undefined}
+        />
+        <SummaryCard
+          label="평균 감정 점수"
+          value={`${summary.averageMood}`}
+          accent={BrandColors.accent}
+          style={stackSummaryCards ? { width: '100%' } : undefined}
+        />
       </View>
 
       <View
@@ -189,23 +215,37 @@ export default function Stats() {
       ) : (
         <Text style={{ color: BrandColors.textSecondary }}>기록이 저장되면 맞춤 통계를 보여드릴게요.</Text>
       )}
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
-function SummaryCard({ label, value, accent }: { label: string; value: string; accent: string }) {
+function SummaryCard({
+  label,
+  value,
+  accent,
+  style,
+}: {
+  label: string;
+  value: string;
+  accent: string;
+  style?: StyleProp<ViewStyle>;
+}) {
   return (
     <View
-      style={{
-        flex: 1,
-        borderRadius: 20,
-        padding: 18,
-        gap: 6,
-        backgroundColor: BrandColors.surface,
-        borderWidth: 1,
-        borderColor: BrandColors.border,
-        ...Shadows.card,
-      }}>
+      style={[
+        {
+          flex: 1,
+          borderRadius: 20,
+          padding: 18,
+          gap: 6,
+          backgroundColor: BrandColors.surface,
+          borderWidth: 1,
+          borderColor: BrandColors.border,
+          ...Shadows.card,
+        },
+        style,
+      ]}>
       <Text style={{ color: BrandColors.textSecondary }}>{label}</Text>
       <Text style={{ fontSize: 24, fontWeight: '800', color: accent }}>{value}</Text>
     </View>

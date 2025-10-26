@@ -1,96 +1,218 @@
-import CardButton from '@/components/CardButton';
 import { HaemayaMascot } from '@/components/HaemayaMascot';
 import { BrandColors, Shadows } from '@/constants/theme';
+import { supabase } from '@/lib/supabase';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { Pressable, ScrollView, Text, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-function HomeAction({
-  title,
-  description,
-  onPress,
-}: {
+interface ServiceTile {
   title: string;
-  description: string;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={{
-        backgroundColor: BrandColors.surface,
-        borderRadius: 24,
-        padding: 24,
-        borderWidth: 1,
-        borderColor: BrandColors.border,
-        gap: 10,
-        ...Shadows.card,
-      }}>
-      <Text style={{ fontSize: 22, fontWeight: '800', color: BrandColors.textPrimary }}>{title}</Text>
-      <Text style={{ fontSize: 14, color: BrandColors.textSecondary, lineHeight: 20 }}>{description}</Text>
-    </Pressable>
-  );
+  subtitle: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  color: string;
+  route: string;
 }
 
+const SERVICE_TILES: ServiceTile[] = [
+  {
+    title: '간단 회상',
+    subtitle: '음성으로 기록',
+    icon: 'mic',
+    color: '#FFF4CC',
+    route: '/chat',
+  },
+  {
+    title: '기억력 퀴즈',
+    subtitle: '맞춤 문제 연습',
+    icon: 'game-controller',
+    color: '#FFE9A6',
+    route: '/games',
+  },
+  {
+    title: '대화 기록',
+    subtitle: '요약과 메모 관리',
+    icon: 'documents',
+    color: '#FFF1D0',
+    route: '/records',
+  },
+  {
+    title: '건강 통계',
+    subtitle: '변화 추이를 한눈에',
+    icon: 'stats-chart',
+    color: '#FDE69F',
+    route: '/stats',
+  },
+  {
+    title: '보호자 연동',
+    subtitle: '초대 코드로 연동하기',
+    icon: 'people',
+    color: '#FFE9C2',
+    route: '/mypage',
+  },
+];
+
+const SUPPORT_CARDS = [
+  {
+    title: 'AI 치매 예측',
+    description: '대화 데이터를 기반으로 위험도를 추정해요.',
+    route: '/stats',
+    accent: '#FFF7D6',
+  },
+  {
+    title: '요양 등급 메모',
+    description: '보호자와 공유할 핵심 메모를 정리하세요.',
+    route: '/records',
+    accent: '#FFEEC6',
+  },
+];
+
 export default function AuthenticatedHome() {
+  const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const [displayName, setDisplayName] = useState<string>();
+  const isCompact = width < 400;
+
+  useEffect(() => {
+    let mounted = true;
+    supabase.auth
+      .getUser()
+      .then(({ data }) => {
+        if (!mounted) return;
+        const user = data.user;
+        if (user) {
+          const metadata = (user.user_metadata as { name?: string } | null) ?? {};
+          setDisplayName(metadata.name ?? user.email ?? undefined);
+        }
+      })
+      .catch(() => {
+        // ignore errors
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const heroGreeting = displayName ? `${displayName}님 안녕하세요,` : '안녕하세요,';
+
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: BrandColors.background }}
-      contentContainerStyle={{ padding: 24, gap: 24, paddingBottom: 48 }}>
-      <View
-        style={{
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          gap: 18,
-          backgroundColor: BrandColors.surface,
-          borderRadius: 24,
-          padding: 18,
-          ...Shadows.card,
+    <SafeAreaView style={{ flex: 1, backgroundColor: BrandColors.background }} edges={['top', 'left', 'right']}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          paddingTop: 24,
+          paddingHorizontal: 20,
+          gap: 24,
+          paddingBottom: 24 + insets.bottom,
         }}>
-        <HaemayaMascot size={86} />
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 26, fontWeight: '800', color: BrandColors.textPrimary }}>해마 케어 허브</Text>
-          <Text style={{ color: BrandColors.textSecondary, marginTop: 6, lineHeight: 20 }}>
-            필요한 기능을 선택해 케어를 이어가세요.
-          </Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <View>
+            {/* <Text style={{ fontSize: 13, color: BrandColors.textSecondary }}>Haema AI</Text> */}
+            <Text style={{ fontSize: 24, fontWeight: '800', color: BrandColors.textPrimary }}>해마 AI</Text>
+          </View>
+          <Pressable
+            onPress={() => router.push('/menu')}
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: 20,
+              borderWidth: 1,
+              borderColor: BrandColors.border,
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: BrandColors.surface,
+            }}>
+            <Ionicons name="menu" size={22} color={BrandColors.textPrimary} />
+          </Pressable>
         </View>
-        <Pressable
-          onPress={() => router.push('/mypage')}
+
+        <View
           style={{
-            paddingHorizontal: 16,
-            paddingVertical: 10,
-            borderRadius: 999,
-            backgroundColor: BrandColors.surface,
-            borderWidth: 1,
-            borderColor: BrandColors.border,
+            backgroundColor: '#FFF7D1',
+            borderRadius: 28,
+            padding: 24,
+            flexDirection: isCompact ? 'column' : 'row',
+            gap: 20,
+            alignItems: 'center',
             ...Shadows.card,
           }}>
-          <Text style={{ color: BrandColors.textPrimary, fontWeight: '600' }}>마이페이지</Text>
-        </Pressable>
-      </View>
+          <View style={{ flex: 1, gap: 10 }}>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: '#DCA600' }}>해마 컬러링</Text>
+            <Text style={{ fontSize: isCompact ? 24 : 28, fontWeight: '900', color: BrandColors.textPrimary }}>
+              {heroGreeting} 오늘도 대화를 시작해볼까요?
+            </Text>
+            <Text style={{ color: '#7A5C00', lineHeight: 20 }}>
+              음성으로 이야기를 들려주면 코치가 돌봄 메모를 만들어드려요.
+            </Text>
+            <Pressable
+              onPress={() => router.push('/chat')}
+              style={{
+                marginTop: 4,
+                alignSelf: 'flex-start',
+                backgroundColor: BrandColors.primary,
+                paddingHorizontal: 18,
+                paddingVertical: 10,
+                borderRadius: 999,
+              }}>
+              <Text style={{ color: '#fff', fontWeight: '700' }}>대화 시작하기</Text>
+            </Pressable>
+          </View>
+          <HaemayaMascot size={isCompact ? 96 : 120} />
+        </View>
 
-      <View style={{ gap: 18 }}>
-        <HomeAction
-          title="대화 시작"
-          description="기억 코치와 음성으로 대화하며 일상을 기록하고, 맞춤 케어를 받아보세요."
-          onPress={() => router.push('/chat')}
-        />
-        <HomeAction
-          title="맞춤 퀴즈"
-          description="최근 대화를 기반으로 기억력 퀴즈를 생성해 인지 능력을 함께 점검합니다."
-          onPress={() => router.push('/games')}
-        />
-        <HomeAction
-          title="기록 모아보기"
-          description="저장된 대화 요약과 핵심 메모를 확인하고 필요한 기록을 관리하세요."
-          onPress={() => router.push('/records')}
-        />
-      </View>
+        <View style={{ gap: 12 }}>
+          <Text style={{ fontSize: 20, fontWeight: '800', color: BrandColors.textPrimary }}>해마 케어 서비스</Text>
+          <View
+            style={{
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              gap: 14,
+            }}>
+            {SERVICE_TILES.map((tile) => (
+              <Pressable
+                key={tile.title}
+                onPress={() => router.push(tile.route)}
+                style={{
+                  width: '47%',
+                  minWidth: 150,
+                  flex: 1,
+                  backgroundColor: tile.color,
+                  borderRadius: 22,
+                  padding: 16,
+                  gap: 8,
+                  borderWidth: 1,
+                  borderColor: 'rgba(0,0,0,0.04)',
+                }}>
+                <Ionicons name={tile.icon} size={26} color={BrandColors.textPrimary} />
+                <Text style={{ fontSize: 17, fontWeight: '800', color: BrandColors.textPrimary }}>{tile.title}</Text>
+                <Text style={{ color: BrandColors.textSecondary, fontSize: 13 }}>{tile.subtitle}</Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
 
-      <View style={{ gap: 12 }}>
-        <Text style={{ fontSize: 16, fontWeight: '700', color: BrandColors.textPrimary }}>빠른 작업</Text>
-        <CardButton title="대화 통계 보기" onPress={() => router.push('/stats')} />
-      </View>
-    </ScrollView>
+        <View style={{ gap: 14 }}>
+          <Text style={{ fontSize: 20, fontWeight: '800', color: BrandColors.textPrimary }}>추천 기능</Text>
+          {SUPPORT_CARDS.map((card) => (
+            <Pressable
+              key={card.title}
+              onPress={() => router.push(card.route)}
+              style={{
+                backgroundColor: card.accent,
+                borderRadius: 24,
+                padding: 20,
+                gap: 8,
+                borderWidth: 1,
+                borderColor: BrandColors.border,
+                ...Shadows.card,
+              }}>
+              <Text style={{ fontSize: 18, fontWeight: '800', color: BrandColors.textPrimary }}>{card.title}</Text>
+              <Text style={{ color: BrandColors.textSecondary }}>{card.description}</Text>
+            </Pressable>
+          ))}
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }

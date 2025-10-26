@@ -5,6 +5,7 @@ import { useAuthStore } from '@/store/authStore';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const TEST_ACCOUNT = {
   email: 'demo@heama.app',
@@ -67,10 +68,19 @@ export default function SignIn() {
     router.push('/auth/sign-up');
   };
 
+  const insets = useSafeAreaInsets();
+
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: BrandColors.background }}
-      contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 24 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: BrandColors.background }} edges={['top', 'left', 'right']}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          flexGrow: 1,
+          justifyContent: 'center',
+          paddingHorizontal: 24,
+          paddingTop: 16,
+          paddingBottom: 32 + insets.bottom,
+        }}>
       <View
         style={{
           backgroundColor: BrandColors.surface,
@@ -130,7 +140,8 @@ export default function SignIn() {
           <AuthButton label="회원가입" variant="outline" onPress={goToSignUp} disabled={loading} />
         </View>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 

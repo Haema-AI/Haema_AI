@@ -2,7 +2,9 @@ import { BrandColors, Shadows } from '@/constants/theme';
 import { useRecordsStore } from '@/store/recordsStore';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import type { StyleProp, ViewStyle } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function RecordDetail() {
   const { id } = useLocalSearchParams<{ id?: string }>();
@@ -13,6 +15,10 @@ export default function RecordDetail() {
 
   const record = id ? getRecord(id) : undefined;
   const [title, setTitle] = useState(record?.title ?? '');
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const stackStats = width < 520;
+  const stackActions = width < 440;
 
   useEffect(() => {
     setTitle(record?.title ?? '');
@@ -20,47 +26,49 @@ export default function RecordDetail() {
 
   if (!hasHydrated) {
     return (
-      <View
-        style={{
-          flex: 1,
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: 24,
-          backgroundColor: BrandColors.background,
-          gap: 12,
-        }}>
-        <ActivityIndicator size="large" color={BrandColors.primary} />
-        <Text style={{ color: BrandColors.textSecondary }}>기록을 불러오는 중입니다...</Text>
-      </View>
+      <SafeAreaView style={{ flex: 1, backgroundColor: BrandColors.background }} edges={['top', 'left', 'right']}>
+        <View
+          style={{
+            flex: 1,
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 24,
+            gap: 12,
+          }}>
+          <ActivityIndicator size="large" color={BrandColors.primary} />
+          <Text style={{ color: BrandColors.textSecondary }}>기록을 불러오는 중입니다...</Text>
+        </View>
+      </SafeAreaView>
     );
   }
 
   if (!record) {
     return (
-      <View
-        style={{
-          flex: 1,
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: 24,
-          gap: 16,
-          backgroundColor: BrandColors.background,
-        }}>
-        <Text style={{ fontSize: 20, fontWeight: '700', color: BrandColors.textPrimary }}>찾을 수 없는 기록입니다.</Text>
-        <Text style={{ color: BrandColors.textSecondary, textAlign: 'center', lineHeight: 20 }}>
-          기록이 삭제되었거나 아직 저장되지 않았을 수 있습니다.
-        </Text>
-        <Pressable
-          onPress={() => router.replace('/records')}
+      <SafeAreaView style={{ flex: 1, backgroundColor: BrandColors.background }} edges={['top', 'left', 'right']}>
+        <View
           style={{
-            paddingHorizontal: 20,
-            paddingVertical: 12,
-            borderRadius: 16,
-            backgroundColor: BrandColors.primary,
+            flex: 1,
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 24,
+            gap: 16,
           }}>
-          <Text style={{ color: '#fff', fontWeight: '600' }}>기록 목록으로 돌아가기</Text>
-        </Pressable>
-      </View>
+          <Text style={{ fontSize: 20, fontWeight: '700', color: BrandColors.textPrimary }}>찾을 수 없는 기록입니다.</Text>
+          <Text style={{ color: BrandColors.textSecondary, textAlign: 'center', lineHeight: 20 }}>
+            기록이 삭제되었거나 아직 저장되지 않았을 수 있습니다.
+          </Text>
+          <Pressable
+            onPress={() => router.replace('/records')}
+            style={{
+              paddingHorizontal: 20,
+              paddingVertical: 12,
+              borderRadius: 16,
+              backgroundColor: BrandColors.primary,
+            }}>
+            <Text style={{ color: '#fff', fontWeight: '600' }}>기록 목록으로 돌아가기</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
     );
   }
 
@@ -91,9 +99,15 @@ export default function RecordDetail() {
   };
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: BrandColors.background }}
-      contentContainerStyle={{ padding: 24, gap: 24, paddingBottom: 48 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: BrandColors.background }} edges={['top', 'left', 'right']}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          paddingHorizontal: 24,
+          paddingTop: 24,
+          gap: 24,
+          paddingBottom: 48 + insets.bottom,
+        }}>
       <View
         style={{
           backgroundColor: BrandColors.surface,
@@ -127,18 +141,33 @@ export default function RecordDetail() {
           </Text>
         </View>
 
-        <View style={{ flexDirection: 'row', gap: 12 }}>
-          <StatCard label="치매 위험 지수" value={`${record.stats.riskScore}`} accent={BrandColors.primary} />
-          <StatCard label="감정 점수" value={`${record.stats.moodScore}`} accent={BrandColors.accent} />
-          <StatCard label="대화 횟수" value={`${record.stats.totalTurns}`} accent={BrandColors.secondary} />
+        <View style={{ flexDirection: stackStats ? 'column' : 'row', gap: 12 }}>
+          <StatCard
+            label="치매 위험 지수"
+            value={`${record.stats.riskScore}`}
+            accent={BrandColors.primary}
+            style={stackStats ? { width: '100%' } : undefined}
+          />
+          <StatCard
+            label="감정 점수"
+            value={`${record.stats.moodScore}`}
+            accent={BrandColors.accent}
+            style={stackStats ? { width: '100%' } : undefined}
+          />
+          <StatCard
+            label="대화 횟수"
+            value={`${record.stats.totalTurns}`}
+            accent={BrandColors.secondary}
+            style={stackStats ? { width: '100%' } : undefined}
+          />
         </View>
       </View>
 
-      <View
-        style={{
-          backgroundColor: BrandColors.surface,
-          borderRadius: 24,
-          padding: 22,
+        <View
+          style={{
+            backgroundColor: BrandColors.surface,
+            borderRadius: 24,
+            padding: 22,
           gap: 14,
           borderWidth: 1,
           borderColor: BrandColors.border,
@@ -148,10 +177,10 @@ export default function RecordDetail() {
         <Text style={{ fontSize: 16, lineHeight: 24, color: BrandColors.textSecondary }}>{record.summary}</Text>
       </View>
 
-      <View
-        style={{
-          backgroundColor: BrandColors.surface,
-          borderRadius: 24,
+        <View
+          style={{
+            backgroundColor: BrandColors.surface,
+            borderRadius: 24,
           padding: 22,
           gap: 10,
           borderWidth: 1,
@@ -166,10 +195,10 @@ export default function RecordDetail() {
         ))}
       </View>
 
-      <View style={{ gap: 8, flexDirection: 'row', flexWrap: 'wrap' }}>
-        {record.keywords.map((keyword) => (
-          <View
-            key={keyword}
+        <View style={{ gap: 8, flexDirection: 'row', flexWrap: 'wrap' }}>
+          {record.keywords.map((keyword) => (
+            <View
+              key={keyword}
             style={{
               backgroundColor: BrandColors.surface,
               borderRadius: 16,
@@ -181,51 +210,69 @@ export default function RecordDetail() {
             <Text style={{ color: BrandColors.textSecondary, fontSize: 13 }}>#{keyword}</Text>
           </View>
         ))}
-      </View>
+        </View>
 
-      <View style={{ flexDirection: 'row', gap: 12 }}>
-        <Pressable
-          onPress={() => router.push({ pathname: '/games', params: { recordId: record.id } })}
-          style={{
-            flex: 1,
-            paddingVertical: 14,
-            borderRadius: 16,
-            backgroundColor: BrandColors.primary,
-            alignItems: 'center',
-          }}>
-          <Text style={{ color: '#fff', fontWeight: '600' }}>이 기록으로 게임 풀기</Text>
-        </Pressable>
-        <Pressable
-          onPress={handleDelete}
-          style={{
-            flex: 1,
-            paddingVertical: 14,
-            borderRadius: 16,
-            backgroundColor: BrandColors.surface,
-            alignItems: 'center',
-            borderWidth: 1,
-            borderColor: BrandColors.dangerSoft,
-          }}>
-          <Text style={{ color: BrandColors.danger, fontWeight: '600' }}>기록 삭제</Text>
-        </Pressable>
-      </View>
-    </ScrollView>
+        <View style={{ flexDirection: stackActions ? 'column' : 'row', gap: 12 }}>
+          <Pressable
+            onPress={() => router.push({ pathname: '/games', params: { recordId: record.id } })}
+            style={[
+              stackActions ? { width: '100%' } : { flex: 1 },
+              {
+                paddingVertical: 14,
+                borderRadius: 16,
+                backgroundColor: BrandColors.primary,
+                alignItems: 'center',
+              },
+            ]}>
+            <Text style={{ color: '#fff', fontWeight: '600' }}>이 기록으로 게임 풀기</Text>
+          </Pressable>
+          <Pressable
+            onPress={handleDelete}
+            style={[
+              stackActions ? { width: '100%' } : { flex: 1 },
+              {
+                paddingVertical: 14,
+                borderRadius: 16,
+                backgroundColor: BrandColors.surface,
+                alignItems: 'center',
+                borderWidth: 1,
+                borderColor: BrandColors.dangerSoft,
+              },
+            ]}>
+            <Text style={{ color: BrandColors.danger, fontWeight: '600' }}>기록 삭제</Text>
+          </Pressable>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
-function StatCard({ label, value, accent }: { label: string; value: string; accent: string }) {
+function StatCard({
+  label,
+  value,
+  accent,
+  style,
+}: {
+  label: string;
+  value: string;
+  accent: string;
+  style?: StyleProp<ViewStyle>;
+}) {
   return (
     <View
-      style={{
-        flex: 1,
-        borderRadius: 18,
-        padding: 16,
-        gap: 6,
-        backgroundColor: BrandColors.primarySoft,
-        borderWidth: 1,
-        borderColor: BrandColors.border,
-        alignItems: 'center',
-      }}>
+      style={[
+        {
+          flex: 1,
+          borderRadius: 18,
+          padding: 16,
+          gap: 6,
+          backgroundColor: BrandColors.primarySoft,
+          borderWidth: 1,
+          borderColor: BrandColors.border,
+          alignItems: 'center',
+        },
+        style,
+      ]}>
       <Text style={{ color: BrandColors.textSecondary, fontSize: 13 }}>{label}</Text>
       <Text style={{ fontSize: 22, fontWeight: '700', color: accent }}>{value}</Text>
     </View>

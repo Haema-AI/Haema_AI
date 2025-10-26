@@ -4,6 +4,7 @@ import { useRecordsStore } from '@/store/recordsStore';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleProp, Text, View, ViewStyle } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface GameState {
   questionIndex: number;
@@ -60,6 +61,7 @@ export default function Games() {
   const { records } = useRecordsStore();
   const [state, setState] = useState<GameState>(initialGameState);
 
+  const insets = useSafeAreaInsets();
   const activeRecord = useMemo(() => {
     if (records.length === 0) return undefined;
     if (recordId) {
@@ -76,21 +78,22 @@ export default function Games() {
 
   if (!activeRecord) {
     return (
-      <View
-        style={{
-          flex: 1,
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: 24,
-          gap: 16,
-          backgroundColor: BrandColors.background,
-        }}>
-        <Text style={{ fontSize: 20, fontWeight: '700', color: BrandColors.textPrimary }}>퀴즈를 만들 기록이 없어요</Text>
-        <Text style={{ color: BrandColors.textSecondary, textAlign: 'center' }}>
-          대화를 저장한 뒤 맞춤 퀴즈를 풀어보세요.
-        </Text>
-        <CardButton title="대화하러 가기" onPress={() => router.push('/chat')} />
-      </View>
+      <SafeAreaView style={{ flex: 1, backgroundColor: BrandColors.background }} edges={['top', 'left', 'right']}>
+        <View
+          style={{
+            flex: 1,
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 24,
+            gap: 16,
+          }}>
+          <Text style={{ fontSize: 20, fontWeight: '700', color: BrandColors.textPrimary }}>퀴즈를 만들 기록이 없어요</Text>
+          <Text style={{ color: BrandColors.textSecondary, textAlign: 'center' }}>
+            대화를 저장한 뒤 맞춤 퀴즈를 풀어보세요.
+          </Text>
+          <CardButton title="대화하러 가기" onPress={() => router.push('/chat')} />
+        </View>
+      </SafeAreaView>
     );
   }
 
@@ -139,10 +142,12 @@ export default function Games() {
 
   if (!currentQuestion) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-        <Text style={{ fontSize: 18, fontWeight: '600' }}>퀴즈를 불러오는 중 문제가 발생했습니다.</Text>
-        <CardButton title="기록으로 돌아가기" onPress={() => router.push('/records')} />
-      </View>
+      <SafeAreaView style={{ flex: 1, backgroundColor: BrandColors.background }} edges={['top', 'left', 'right']}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }}>
+          <Text style={{ fontSize: 18, fontWeight: '600' }}>퀴즈를 불러오는 중 문제가 발생했습니다.</Text>
+          <CardButton title="기록으로 돌아가기" onPress={() => router.push('/records')} />
+        </View>
+      </SafeAreaView>
     );
   }
 
@@ -155,9 +160,15 @@ export default function Games() {
     : () => undefined;
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: BrandColors.background }}
-      contentContainerStyle={{ padding: 24, gap: 24, paddingBottom: 48 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: BrandColors.background }} edges={['top', 'left', 'right']}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          paddingHorizontal: 24,
+          paddingTop: 24,
+          gap: 24,
+          paddingBottom: 48 + insets.bottom,
+        }}>
       <View>
         <Text style={{ fontSize: 28, fontWeight: '800', color: BrandColors.textPrimary }}>기억력 퀴즈</Text>
         <Text style={{ color: BrandColors.textSecondary }}>
@@ -314,6 +325,7 @@ export default function Games() {
           </View>
         </View>
       ) : null}
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }

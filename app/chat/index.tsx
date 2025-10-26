@@ -1,4 +1,3 @@
-import { HaemayaMascot } from '@/components/HaemayaMascot';
 import { BrandColors, Shadows } from '@/constants/theme';
 import { mockLLMReply } from '@/lib/assistant';
 import { extractKeywords } from '@/lib/conversation';
@@ -21,7 +20,10 @@ import {
   Pressable,
   Text,
   View,
+  useWindowDimensions,
 } from 'react-native';
+import type { StyleProp, ViewStyle } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 function MessageBubble({ message }: { message: ChatMessage }) {
   const isUser = message.role === 'user';
@@ -209,11 +211,13 @@ function HeaderActionButton({
   onPress,
   variant = 'primary',
   disabled,
+  style,
 }: {
   label: string;
   onPress: () => void;
   variant?: 'primary' | 'surface';
   disabled?: boolean;
+  style?: StyleProp<ViewStyle>;
 }) {
   const background = variant === 'primary' ? BrandColors.primary : BrandColors.primarySoft;
   const textColor = variant === 'primary' ? '#fff' : BrandColors.primary;
@@ -224,20 +228,28 @@ function HeaderActionButton({
     <Pressable
       onPress={onPress}
       disabled={disabled}
-      style={{
-        paddingHorizontal: 18,
-        paddingVertical: 12,
-        borderRadius: 14,
-        backgroundColor: disabled ? disabledBackground : background,
-        borderWidth: variant === 'surface' ? 1 : 0,
-        borderColor: variant === 'surface' ? BrandColors.primarySoft : undefined,
-      }}>
+      style={[
+        {
+          paddingHorizontal: 18,
+          paddingVertical: 12,
+          borderRadius: 14,
+          backgroundColor: disabled ? disabledBackground : background,
+          borderWidth: variant === 'surface' ? 1 : 0,
+          borderColor: variant === 'surface' ? BrandColors.primarySoft : undefined,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        style,
+      ]}>
       <Text style={{ color: disabled ? disabledTextColor : textColor, fontWeight: '600' }}>{label}</Text>
     </Pressable>
   );
 }
 
 export default function Chat() {
+  const { width } = useWindowDimensions();
+  const isCompactHeader = width < 720;
+  const isNarrow = width < 420;
   const listRef = useRef<FlatList<ChatMessage>>(null);
   const { messages, addMessage, addAssistantMessage, isResponding, setResponding, reset } = useChatStore();
   const addRecord = useRecordsStore((state) => state.addRecordFromMessages);
@@ -246,6 +258,7 @@ export default function Chat() {
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [recordingLevel, setRecordingLevel] = useState(0);
   const recordingHandleRef = useRef<RecordingHandle | null>(null);
+  const insets = useSafeAreaInsets();
 
   const lastAssistantMessage = useMemo(
     () => [...messages].reverse().find((message) => message.role === 'assistant'),
@@ -406,58 +419,91 @@ export default function Chat() {
 
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      style={{ flex: 1, backgroundColor: BrandColors.background }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: BrandColors.background }} edges={['top', 'left', 'right']}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
       <View style={{ flex: 1, paddingHorizontal: 24, paddingTop: 24, paddingBottom: 16, gap: 20 }}>
         <View
           style={{
             backgroundColor: BrandColors.surface,
             borderRadius: 28,
             padding: 24,
-            gap: 16,
             ...Shadows.card,
-            flexDirection: 'row',
-            alignItems: 'center',
           }}>
-          <HaemayaMascot size={90} />
-          <View style={{ flex: 1, gap: 6, marginLeft: 16 }}>
-            <Text style={{ fontSize: 28, fontWeight: '800', color: BrandColors.textPrimary }}>해마 기억 코치</Text>
-            <Text style={{ color: BrandColors.textSecondary, lineHeight: 22 }}>
-              GPT 기반 코치가 어르신의 이야기를 정리하고, 필요한 케어를 제안해드립니다.
-            </Text>
-          </View>
           <View
             style={{
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              padding: 16,
-              borderRadius: 18,
-              borderWidth: 1,
-              borderColor: BrandColors.border,
-              backgroundColor: BrandColors.surfaceSoft,
+              width: '100%',
+              flexDirection: isCompactHeader ? 'column' : 'row',
+              alignItems: isCompactHeader ? 'flex-start' : 'stretch',
+              gap: isCompactHeader ? 16 : 18,
             }}>
-            <View>
-              <Text style={{ fontSize: 14, color: BrandColors.textSecondary }}>오늘의 대화 준비 완료</Text>
-              <Text style={{ fontSize: 18, fontWeight: '700', color: BrandColors.textPrimary }}>
-                음성으로 간편하게 기록하세요
+            <View style={{ flex: 1, gap: 6 }}>
+              <Text
+                style={{
+                  fontSize: isNarrow ? 24 : 28,
+                  fontWeight: '800',
+                  color: BrandColors.textPrimary,
+                }}>
+                해마 기억 코치
+              </Text>
+              <Text style={{ color: BrandColors.textSecondary, lineHeight: 22 }}>
+                GPT 기반 코치가 어르신의 이야기를 정리하고, 필요한 케어를 제안해드립니다.
               </Text>
             </View>
-            <View style={{ flexDirection: 'row', gap: 10 }}>
-              <HeaderActionButton label="요약 저장" onPress={handleSaveRecord} disabled={isResponding} />
-              <HeaderActionButton label="새 대화" onPress={handleReset} variant="surface" disabled={isResponding} />
+            <View
+              style={[
+                {
+                  padding: 16,
+                  borderRadius: 18,
+                  borderWidth: 1,
+                  borderColor: BrandColors.border,
+                  backgroundColor: BrandColors.surfaceSoft,
+                  gap: 12,
+                  flexShrink: 0,
+                },
+                isCompactHeader ? { width: '100%' } : { minWidth: 240 },
+              ]}>
+              <View style={{ gap: 6 }}>
+                <Text style={{ fontSize: 14, color: BrandColors.textSecondary }}>오늘의 대화 준비 완료</Text>
+                <Text
+                  style={{
+                    fontSize: isNarrow ? 16 : 18,
+                    fontWeight: '700',
+                    color: BrandColors.textPrimary,
+                  }}>
+                  음성으로 간편하게 기록하세요
+                </Text>
+              </View>
+              <View
+                style={{
+                  flexDirection: isCompactHeader ? 'column' : 'row',
+                  gap: 10,
+                  width: '100%',
+                }}>
+                <HeaderActionButton
+                  label="요약 저장"
+                  onPress={handleSaveRecord}
+                  disabled={isResponding}
+                  style={isCompactHeader ? { alignSelf: 'stretch' } : { flex: 1 }}
+                />
+                <HeaderActionButton
+                  label="새 대화"
+                  onPress={handleReset}
+                  variant="surface"
+                  disabled={isResponding}
+                  style={isCompactHeader ? { alignSelf: 'stretch' } : { flex: 1 }}
+                />
+              </View>
             </View>
           </View>
         </View>
 
         <View
           style={{
-            flex: 1,
+            flex: 1.15,
             backgroundColor: BrandColors.surface,
             borderRadius: 32,
-            paddingVertical: 24,
-            paddingHorizontal: 20,
+            paddingVertical: 28,
+            paddingHorizontal: 22,
             ...Shadows.card,
           }}>
           <Text style={{ fontSize: 16, fontWeight: '700', color: BrandColors.textPrimary, marginBottom: 12 }}>
@@ -487,13 +533,13 @@ export default function Chat() {
 
       <View
         style={{
-          paddingHorizontal: 24,
-          paddingVertical: 20,
+          paddingHorizontal: 20,
+          paddingTop: 12,
+          paddingBottom: 12 + insets.bottom,
           borderTopWidth: 1,
           borderColor: BrandColors.border,
           backgroundColor: BrandColors.surface,
-          gap: 18,
-          ...Shadows.card,
+          gap: 12,
         }}>
         {lastAssistantMessage ? (
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -522,6 +568,7 @@ export default function Chat() {
           <Text style={{ textAlign: 'center', color: BrandColors.textSecondary }}>음성을 문자로 변환 중이에요...</Text>
         ) : null}
       </View>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }

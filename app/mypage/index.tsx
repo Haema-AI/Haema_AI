@@ -3,7 +3,9 @@ import { BrandColors, Shadows } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, Text, View, useWindowDimensions } from 'react-native';
+import type { StyleProp, ViewStyle } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuthStore } from '@/store/authStore';
 import { useChatStore } from '@/store/chatStore';
@@ -19,6 +21,11 @@ export default function MyPage() {
   const { reset: resetChat } = useChatStore();
   const { records } = useRecordsStore();
   const setUserId = useAuthStore((state) => state.setUserId);
+  const { width } = useWindowDimensions();
+  const isCompact = width < 420;
+  const stackMetrics = width < 640;
+  const stackStatus = width < 720;
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     supabase.auth
@@ -89,9 +96,15 @@ export default function MyPage() {
   };
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: BrandColors.background }}
-      contentContainerStyle={{ padding: 24, gap: 24, paddingBottom: 48 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: BrandColors.background }} edges={['top', 'left', 'right']}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          paddingHorizontal: 24,
+          paddingTop: 24,
+          gap: 24,
+          paddingBottom: 48 + insets.bottom,
+        }}>
       <View
         style={{
           backgroundColor: BrandColors.surface,
@@ -100,10 +113,15 @@ export default function MyPage() {
           gap: 14,
           ...Shadows.card,
         }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-          <HaemayaMascot size={80} />
+        <View
+          style={{
+            flexDirection: isCompact ? 'column' : 'row',
+            alignItems: isCompact ? 'flex-start' : 'center',
+            gap: 16,
+          }}>
+          <HaemayaMascot size={isCompact ? 72 : 80} />
           <View style={{ flex: 1, gap: 6 }}>
-            <Text style={{ fontSize: 30, fontWeight: '800', color: BrandColors.textPrimary }}>
+            <Text style={{ fontSize: isCompact ? 26 : 30, fontWeight: '800', color: BrandColors.textPrimary }}>
               {profile.name ? `${profile.name}님,` : '안녕하세요,'}
             </Text>
             <Text style={{ fontSize: 16, color: BrandColors.textSecondary, lineHeight: 22 }}>
@@ -114,13 +132,28 @@ export default function MyPage() {
         </View>
         <View
           style={{
-            flexDirection: 'row',
+            width: '100%',
+            flexDirection: stackMetrics ? 'column' : 'row',
             gap: 16,
             marginTop: 8,
           }}>
-          <DashboardMetric label="저장된 대화" value={`${records.length}회`} />
-          <DashboardMetric label="평균 위험 지수" value={`${metrics.averageRisk}점`} accent={BrandColors.primary} />
-          <DashboardMetric label="평균 감정 점수" value={`${metrics.averageMood}`} accent={BrandColors.accent} />
+          <DashboardMetric
+            label="저장된 대화"
+            value={`${records.length}회`}
+            style={stackMetrics ? { width: '100%' } : { flex: 1 }}
+          />
+          <DashboardMetric
+            label="평균 위험 지수"
+            value={`${metrics.averageRisk}점`}
+            accent={BrandColors.primary}
+            style={stackMetrics ? { width: '100%' } : { flex: 1 }}
+          />
+          <DashboardMetric
+            label="평균 감정 점수"
+            value={`${metrics.averageMood}`}
+            accent={BrandColors.accent}
+            style={stackMetrics ? { width: '100%' } : { flex: 1 }}
+          />
         </View>
       </View>
 
@@ -133,12 +166,17 @@ export default function MyPage() {
           ...Shadows.card,
         }}>
         <Text style={{ fontSize: 20, fontWeight: '700', color: BrandColors.textPrimary }}>최근 활동</Text>
-        <View style={{ flexDirection: 'row', gap: 16 }}>
+        <View
+          style={{
+            flexDirection: stackStatus ? 'column' : 'row',
+            gap: 16,
+          }}>
           <StatusCard
             title="주간 대화 변화"
             value={`${metrics.weeklyTrend >= 0 ? '+' : ''}${metrics.weeklyTrend}%`}
             background={BrandColors.primarySoft}
             valueColor={BrandColors.primary}
+            style={stackStatus ? { width: '100%' } : { flex: 1 }}
           />
           <StatusCard
             title="최근 기록 요약"
@@ -146,6 +184,7 @@ export default function MyPage() {
             background={BrandColors.surfaceSoft}
             valueColor={BrandColors.textSecondary}
             multiline
+            style={stackStatus ? { width: '100%' } : { flex: 1 }}
           />
         </View>
       </View>
@@ -182,7 +221,8 @@ export default function MyPage() {
           variant="danger"
         />
       </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
@@ -190,22 +230,26 @@ function DashboardMetric({
   label,
   value,
   accent = BrandColors.textPrimary,
+  style,
 }: {
   label: string;
   value: string;
   accent?: string;
+  style?: StyleProp<ViewStyle>;
 }) {
   return (
     <View
-      style={{
-        flex: 1,
-        borderRadius: 18,
-        padding: 16,
-        backgroundColor: BrandColors.surfaceSoft,
-        borderWidth: 1,
-        borderColor: BrandColors.border,
-        gap: 4,
-      }}>
+      style={[
+        {
+          borderRadius: 18,
+          padding: 16,
+          backgroundColor: BrandColors.surfaceSoft,
+          borderWidth: 1,
+          borderColor: BrandColors.border,
+          gap: 4,
+        },
+        style,
+      ]}>
       <Text style={{ color: BrandColors.textSecondary }}>{label}</Text>
       <Text style={{ fontSize: 22, fontWeight: '800', color: accent }}>{value}</Text>
     </View>
@@ -218,24 +262,28 @@ function StatusCard({
   background,
   valueColor,
   multiline,
+  style,
 }: {
   title: string;
   value: string;
   background: string;
   valueColor: string;
   multiline?: boolean;
+  style?: StyleProp<ViewStyle>;
 }) {
   return (
     <View
-      style={{
-        flex: 1,
-        borderRadius: 18,
-        padding: 18,
-        backgroundColor: background,
-        borderWidth: 1,
-        borderColor: BrandColors.border,
-        minHeight: 120,
-      }}>
+      style={[
+        {
+          borderRadius: 18,
+          padding: 18,
+          backgroundColor: background,
+          borderWidth: 1,
+          borderColor: BrandColors.border,
+          minHeight: 120,
+        },
+        style,
+      ]}>
       <Text style={{ color: BrandColors.textSecondary, marginBottom: 8 }}>{title}</Text>
       <Text
         style={{

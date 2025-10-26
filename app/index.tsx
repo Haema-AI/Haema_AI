@@ -4,9 +4,11 @@ import { useAuthStore } from '@/store/authStore';
 import { router } from 'expo-router';
 import { useEffect } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function Home() {
   const userId = useAuthStore((state) => state.userId);
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     if (userId) {
@@ -15,9 +17,15 @@ export default function Home() {
   }, [userId]);
 
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: BrandColors.background }}
-      contentContainerStyle={{ padding: 24, paddingBottom: 40, gap: 24 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: BrandColors.background }} edges={['top', 'left', 'right']}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          paddingHorizontal: 24,
+          paddingTop: 24,
+          paddingBottom: 40 + insets.bottom,
+          gap: 24,
+        }}>
       <View
         style={{
           backgroundColor: BrandColors.surface,
@@ -67,7 +75,8 @@ export default function Home() {
           <LandingButton label="회원가입" variant="outline" onPress={() => router.push('/auth/sign-up')} />
         </View>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 

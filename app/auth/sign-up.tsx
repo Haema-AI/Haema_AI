@@ -4,6 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function SignUp() {
   const [email, setEmail] = useState('');
@@ -40,10 +41,19 @@ export default function SignUp() {
     router.replace('/auth/sign-in');
   };
 
+  const insets = useSafeAreaInsets();
+
   return (
-    <ScrollView
-      style={{ flex: 1, backgroundColor: BrandColors.background }}
-      contentContainerStyle={{ padding: 24, flexGrow: 1, justifyContent: 'center' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: BrandColors.background }} edges={['top', 'left', 'right']}>
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          flexGrow: 1,
+          justifyContent: 'center',
+          paddingHorizontal: 24,
+          paddingTop: 24,
+          paddingBottom: 32 + insets.bottom,
+        }}>
       <View
         style={{
           gap: 18,
@@ -78,7 +88,8 @@ export default function SignUp() {
           <AuthButton label="로그인으로 돌아가기" variant="outline" onPress={() => router.replace('/auth/sign-in')} disabled={loading} />
         </View>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
