@@ -3,18 +3,28 @@ import { BrandColors, Shadows } from '@/constants/theme';
 import { useRecordsStore } from '@/store/recordsStore';
 import { router } from 'expo-router';
 import { useMemo } from 'react';
-import { FlatList, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, Text, View } from 'react-native';
 
 const formatDate = (timestamp: number) =>
   new Date(timestamp).toLocaleString('ko-KR', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' });
 
 export default function Records() {
-  const { records } = useRecordsStore();
+  const records = useRecordsStore((state) => state.records);
+  const hasHydrated = useRecordsStore((state) => state.hasHydrated);
 
   const averageRisk = useMemo(() => {
     if (records.length === 0) return 0;
     return Math.round(records.reduce((acc, record) => acc + record.stats.riskScore, 0) / records.length);
   }, [records]);
+
+  if (!hasHydrated) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: BrandColors.background, gap: 12 }}>
+        <ActivityIndicator size="large" color={BrandColors.primary} />
+        <Text style={{ color: BrandColors.textSecondary }}>기록을 불러오는 중입니다...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: BrandColors.background }}>

@@ -1,6 +1,8 @@
 import { supabase } from '@/lib/supabase';
 import { queryClient } from '@/lib/queryClient';
 import { useAuthStore } from '@/store/authStore';
+import { useChatStore } from '@/store/chatStore';
+import { useRecordsStore } from '@/store/recordsStore';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -9,6 +11,8 @@ import { useEffect } from 'react';
 
 export default function RootLayout() {
   const setUserId = useAuthStore((state) => state.setUserId);
+  const hydrateChat = useChatStore((state) => state.hydrate);
+  const hydrateRecords = useRecordsStore((state) => state.hydrate);
 
   useEffect(() => {
     let mounted = true;
@@ -28,6 +32,11 @@ export default function RootLayout() {
       subscription.unsubscribe();
     };
   }, [setUserId]);
+
+  useEffect(() => {
+    void hydrateChat();
+    void hydrateRecords();
+  }, [hydrateChat, hydrateRecords]);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

@@ -3,8 +3,14 @@ import { BrandColors, Shadows } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
 import { useAuthStore } from '@/store/authStore';
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+
+const TEST_ACCOUNT = {
+  email: 'demo@heama.app',
+  password: 'heama123',
+  userId: 'demo-user',
+};
 
 export default function SignIn() {
   const [email, setEmail] = useState('');
@@ -19,11 +25,28 @@ export default function SignIn() {
     }
   }, [userId]);
 
+  const isTestAccount = useMemo(
+    () => email.trim().toLowerCase() === TEST_ACCOUNT.email && password === TEST_ACCOUNT.password,
+    [email, password],
+  );
+
+  const signInTestAccount = () => {
+    setUserId(TEST_ACCOUNT.userId);
+    Alert.alert('테스트 로그인', '더미 계정으로 홈 화면으로 이동합니다.');
+    router.replace('/home');
+  };
+
   const onSignIn = async () => {
     if (!email || !password) {
       Alert.alert('입력 오류', '이메일과 비밀번호를 모두 입력해주세요.');
       return;
     }
+
+    if (isTestAccount) {
+      signInTestAccount();
+      return;
+    }
+
     setLoading(true);
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);

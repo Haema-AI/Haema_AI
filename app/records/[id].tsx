@@ -2,13 +2,14 @@ import { BrandColors, Shadows } from '@/constants/theme';
 import { useRecordsStore } from '@/store/recordsStore';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
 export default function RecordDetail() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const getRecord = useRecordsStore((state) => state.getRecord);
   const removeRecord = useRecordsStore((state) => state.removeRecord);
   const updateRecordTitle = useRecordsStore((state) => state.updateRecordTitle);
+  const hasHydrated = useRecordsStore((state) => state.hasHydrated);
 
   const record = id ? getRecord(id) : undefined;
   const [title, setTitle] = useState(record?.title ?? '');
@@ -16,6 +17,23 @@ export default function RecordDetail() {
   useEffect(() => {
     setTitle(record?.title ?? '');
   }, [record?.title]);
+
+  if (!hasHydrated) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 24,
+          backgroundColor: BrandColors.background,
+          gap: 12,
+        }}>
+        <ActivityIndicator size="large" color={BrandColors.primary} />
+        <Text style={{ color: BrandColors.textSecondary }}>기록을 불러오는 중입니다...</Text>
+      </View>
+    );
+  }
 
   if (!record) {
     return (
