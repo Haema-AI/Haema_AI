@@ -2,6 +2,8 @@ import { BrandColors, Shadows } from '@/constants/theme';
 import { useRecordsStore } from '@/store/recordsStore';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useEffect, useState } from 'react';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import { ActivityIndicator, Alert, Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import type { StyleProp, ViewStyle } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,6 +17,7 @@ export default function RecordDetail() {
 
   const record = id ? getRecord(id) : undefined;
   const [title, setTitle] = useState(record?.title ?? '');
+  const [isExporting, setIsExporting] = useState(false);
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const stackStats = width < 520;
@@ -95,6 +98,42 @@ export default function RecordDetail() {
     }
     if (trimmed !== record.title) {
       updateRecordTitle(record.id, trimmed);
+    }
+  };
+
+  const handleExportFhir = async () => {
+    if (!record || isExporting) return;
+    setIsExporting(true);
+    let fileUri: string | null = null;
+    try {
+      const canShare = await Sharing.isAvailableAsync();
+      if (!canShare) {
+        Alert.alert('공유 미지원', '이 플랫폼에서는 파일 공유가 지원되지 않습니다.');
+        return;
+      }
+
+      const directory = FileSystem.cacheDirectory ?? FileSystem.documentDirectory;
+      if (!directory) {
+        Alert.alert('공유 실패', '임시 파일을 저장할 위치를 찾을 수 없습니다.');
+        return;
+      }
+
+      fileUri = `${directory}heama-fhir-${record.id}.json`;
+      const json = JSON.stringify(record.fhirBundle, null, 2);
+      await FileSystem.writeAsStringAsync(fileUri, json, { encoding: FileSystem.EncodingType.UTF8 });
+
+      await Sharing.shareAsync(fileUri, {
+        mimeType: 'application/fhir+json',
+        dialogTitle: 'FHIR 번들 공유',
+      });
+    } catch (error) {
+      console.error('Failed to share FHIR bundle', error);
+      Alert.alert('공유 실패', 'FHIR 번들을 공유하는 중 오류가 발생했습니다.');
+    } finally {
+      if (fileUri) {
+        await FileSystem.deleteAsync(fileUri, { idempotent: true }).catch(() => undefined);
+      }
+      setIsExporting(false);
     }
   };
 
@@ -213,6 +252,25 @@ export default function RecordDetail() {
         </View>
 
         <View style={{ flexDirection: stackActions ? 'column' : 'row', gap: 12 }}>
+          <Pressable
+            onPress={handleExportFhir}
+            disabled={isExporting}
+            style={[
+              stackActions ? { width: '100%' } : { flex: 1 },
+              {
+                paddingVertical: 14,
+                borderRadius: 16,
+                backgroundColor: BrandColors.surface,
+                alignItems: 'center',
+                borderWidth: 1,
+                borderColor: BrandColors.primary,
+                opacity: isExporting ? 0.6 : 1,
+              },
+            ]}>
+            <Text style={{ color: BrandColors.primary, fontWeight: '600' }}>
+              {isExporting ? '공유 준비 중...' : 'FHIR 공유하기'}
+            </Text>
+          </Pressable>
           <Pressable
             onPress={() => router.push({ pathname: '/games', params: { recordId: record.id } })}
             style={[
