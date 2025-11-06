@@ -8,8 +8,8 @@ import { Alert, Pressable, ScrollView, Text, TextInput, View } from 'react-nativ
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const TEST_ACCOUNT = {
-  email: 'demo@heama.app',
-  password: 'heama123',
+  email: '1',
+  password: '1',
   userId: 'demo-user',
 };
 
