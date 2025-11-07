@@ -43,3 +43,6 @@ app-example
 /ios
 /android
 
+assets/models/*.gguf
+android/app/src/main/assets/models/
+ios/**/Supporting/models/

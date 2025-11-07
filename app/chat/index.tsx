@@ -10,7 +10,7 @@ import type { ChatMessage } from '@/types/chat';
 import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
 import { router } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
 import {
   Alert,
@@ -439,24 +439,29 @@ export default function Chat() {
     }
   };
 
-  const handleSaveRecord = () => {
+  const handleSaveRecord = useCallback(async () => {
     const chatMessages = useChatStore.getState().messages;
     if (chatMessages.length < 2) {
       Alert.alert('저장 불가', '대화가 조금 더 쌓인 후에 기록을 저장할 수 있어요.');
       return;
     }
 
-    const record = addRecord({
-      messages: chatMessages.map((message) => ({ ...message })),
-      title: chatMessages.find((message) => message.role === 'user')?.text.slice(0, 18) ?? undefined,
-      conversationId,
-    });
+    try {
+      const record = await addRecord({
+        messages: chatMessages.map((message) => ({ ...message })),
+        title: chatMessages.find((message) => message.role === 'user')?.text.slice(0, 18) ?? undefined,
+        conversationId,
+      });
 
-    Alert.alert('저장 완료', '기록 페이지에서 대화 요약을 확인할 수 있어요.', [
-      { text: '기록 보기', onPress: () => router.push(`/records/${record.id}`) },
-      { text: '계속 대화하기' },
-    ]);
-  };
+      Alert.alert('저장 완료', '기록 페이지에서 대화 요약을 확인할 수 있어요.', [
+        { text: '기록 보기', onPress: () => router.push(`/records/${record.id}`) },
+        { text: '계속 대화하기' },
+      ]);
+    } catch (error) {
+      console.error('대화 기록 저장 실패', error);
+      Alert.alert('저장 실패', '대화 기록을 저장하지 못했습니다. 잠시 후 다시 시도해주세요.');
+    }
+  }, [addRecord, conversationId]);
 
   const handleReset = () => {
     Alert.alert('새 대화 시작', '현재 대화를 초기화할까요?', [
@@ -536,7 +541,9 @@ export default function Chat() {
                   }}>
                   <HeaderActionButton
                     label="요약 저장"
-                    onPress={handleSaveRecord}
+                    onPress={() => {
+                      void handleSaveRecord();
+                    }}
                     disabled={isResponding}
                     style={{ flex: 1 }}
                   />

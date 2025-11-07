@@ -7,11 +7,18 @@ import { useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-const TEST_ACCOUNT = {
-  email: 'demo@heama.app',
-  password: 'heama123',
-  userId: 'demo-user',
-};
+const TEST_ACCOUNTS = [
+  {
+    email: 'haema.ai.official@gmail.com',
+    password: 'haema123',
+    userId: 'admin',
+  },
+  {
+    email: '1',
+    password: '1',
+    userId: 'test',
+  },
+] as const;
 
 export default function SignIn() {
   const [email, setEmail] = useState('');
@@ -26,13 +33,17 @@ export default function SignIn() {
     }
   }, [userId]);
 
-  const isTestAccount = useMemo(
-    () => email.trim().toLowerCase() === TEST_ACCOUNT.email && password === TEST_ACCOUNT.password,
+  const matchedTestAccount = useMemo(
+    () =>
+      TEST_ACCOUNTS.find(
+        (account) =>
+          email.trim().toLowerCase() === account.email.toLowerCase() && password === account.password,
+      ),
     [email, password],
   );
 
-  const signInTestAccount = () => {
-    setUserId(TEST_ACCOUNT.userId);
+  const signInTestAccount = (account: (typeof TEST_ACCOUNTS)[number]) => {
+    setUserId(account.userId);
     Alert.alert('테스트 로그인', '더미 계정으로 홈 화면으로 이동합니다.');
     router.replace('/home');
   };
@@ -43,8 +54,8 @@ export default function SignIn() {
       return;
     }
 
-    if (isTestAccount) {
-      signInTestAccount();
+    if (matchedTestAccount) {
+      signInTestAccount(matchedTestAccount);
       return;
     }
 

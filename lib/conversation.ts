@@ -1,3 +1,4 @@
+import { generateLocalSummary } from '@/lib/summary/localSummariser';
 import { ChatMessage } from '@/types/chat';
 
 export const FALLBACK_KEYWORDS = ['건강', '기억력', '약 복용', '운동', '수면', '감정', '가족', '취미'];
@@ -87,7 +88,7 @@ export function deriveStats(messages: ChatMessage[]) {
   };
 }
 
-export function summariseConversation(messages: ChatMessage[], keywords: string[]) {
+function buildFallbackSummary(messages: ChatMessage[], keywords: string[]) {
   const lastUserMessage = [...messages].reverse().find((message) => message.role === 'user');
   const summaryBase = messages
     .filter((message) => message.role === 'assistant')
@@ -99,9 +100,19 @@ export function summariseConversation(messages: ChatMessage[], keywords: string[
     ? `최근 사용자가 "${lastUserMessage.text.slice(0, 40)}"라고 이야기했습니다.`
     : '최근 대화의 핵심을 정리했습니다.';
 
-  return `${intro} ${summaryBase || '대화 내용을 기반으로 다음 일정을 관리해보세요.'} 키워드: ${keywords
-    .slice(0, 3)
-    .join(', ')}`;
+  const keywordLine = keywords.slice(0, 3).join(', ');
+  return `${intro} ${summaryBase || '대화 내용을 기반으로 다음 일정을 관리해보세요.'} 키워드: ${keywordLine}`;
+}
+
+export async function summariseConversation(messages: ChatMessage[], keywords: string[]) {
+  const fallback = buildFallbackSummary(messages, keywords);
+  try {
+    const summary = await generateLocalSummary(messages, keywords);
+    return summary ?? fallback;
+  } catch (error) {
+    console.error('대화 요약 생성 실패 – 기본 요약 사용', error);
+    return fallback;
+  }
 }
 
 function pickRandomInternal<T>(array: T[], count: number, ensureItems: T[] = [], fallback: T[] = []): T[] {

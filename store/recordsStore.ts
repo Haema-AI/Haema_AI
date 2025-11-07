@@ -1,4 +1,5 @@
 import { buildQuiz, createId, deriveHighlights, deriveStats, extractKeywords, summariseConversation } from '@/lib/conversation';
+import { generateLocalKeywords } from '@/lib/summary/localKeywordExtractor';
 import { buildConversationBundle } from '@/lib/fhir/buildConversationBundle';
 import {
   deleteRecord as deleteRecordFromStorage,
@@ -10,12 +11,14 @@ import { ChatMessage } from '@/types/chat';
 import { ConversationRecord } from '@/types/records';
 import { create } from 'zustand';
 
-function createRecord(messages: ChatMessage[], title?: string, recordIdOverride?: string): ConversationRecord {
+async function createRecord(messages: ChatMessage[], title?: string, recordIdOverride?: string): Promise<ConversationRecord> {
   const now = Date.now();
-  const keywords = extractKeywords(messages);
+  const heuristicKeywords = extractKeywords(messages);
+  const localKeywords = await generateLocalKeywords(messages);
+  const keywords = localKeywords && localKeywords.length > 0 ? localKeywords : heuristicKeywords;
   const stats = deriveStats(messages);
   const highlights = deriveHighlights(messages);
-  const summary = summariseConversation(messages, keywords);
+  const summary = await summariseConversation(messages, keywords);
   const recordId = recordIdOverride ?? createId();
   const quiz = buildQuiz({ id: recordId, keywords, highlights, stats });
 
@@ -52,7 +55,7 @@ function createRecord(messages: ChatMessage[], title?: string, recordIdOverride?
 interface RecordsState {
   records: ConversationRecord[];
   hasHydrated: boolean;
-  addRecordFromMessages: (input: { messages: ChatMessage[]; title?: string; conversationId: string }) => ConversationRecord;
+  addRecordFromMessages: (input: { messages: ChatMessage[]; title?: string; conversationId: string }) => Promise<ConversationRecord>;
   removeRecord: (id: string) => void;
   getRecord: (id: string) => ConversationRecord | undefined;
   updateRecordTitle: (id: string, title: string) => void;
@@ -62,8 +65,8 @@ interface RecordsState {
 export const useRecordsStore = create<RecordsState>((set, get) => ({
   records: [],
   hasHydrated: false,
-  addRecordFromMessages: ({ messages, title, conversationId }) => {
-    const record = createRecord(messages, title, conversationId);
+  addRecordFromMessages: async ({ messages, title, conversationId }) => {
+    const record = await createRecord(messages, title, conversationId);
     set((state) => ({
       records: [record, ...state.records.filter((existing) => existing.id !== record.id)],
     }));

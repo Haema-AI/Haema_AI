@@ -38,6 +38,13 @@ const SERVICE_TILES: ServiceTile[] = [
     route: '/records',
   },
   {
+    title: '사진 설명',
+    subtitle: '이미지 보고 기록',
+    icon: 'image-outline',
+    color: '#FFE3D6',
+    route: '/photo-note',
+  },
+  {
     title: '건강 통계',
     subtitle: '변화 추이를 한눈에',
     icon: 'stats-chart',

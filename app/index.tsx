@@ -73,6 +73,9 @@ export default function Home() {
         <View style={{ gap: 12 }}>
           <LandingButton label="로그인" onPress={() => router.push('/auth/sign-in')} />
           <LandingButton label="회원가입" variant="outline" onPress={() => router.push('/auth/sign-up')} />
+          {__DEV__ ? (
+            <LandingButton label="LLM 테스트" variant="outline" onPress={() => router.push('/llm-test')} />
+          ) : null}
         </View>
       </View>
       </ScrollView>
