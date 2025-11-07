@@ -1,18 +1,29 @@
 import { BrandColors, Shadows } from '@/constants/theme';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { Image, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+const CARD_IMAGES = [
+  require('@/assets/hwatu/jan.png'),
+  require('@/assets/hwatu/feb.png'),
+  require('@/assets/hwatu/mar.png'),
+  require('@/assets/hwatu/apr.png'),
+  require('@/assets/hwatu/may.png'),
+  require('@/assets/hwatu/jun.png'),
+  require('@/assets/hwatu/jul.png'),
+  require('@/assets/hwatu/aug.png'),
+  require('@/assets/hwatu/sep.png'),
+  require('@/assets/hwatu/oct.png'),
+  require('@/assets/hwatu/nov.png'),
+  require('@/assets/hwatu/dec.png'),
+] as const;
+const BACK_IMAGE = require('@/assets/hwatu/backside.png');
 
 type Card = {
   id: number;
-  emoji: string;
+  image: (typeof CARD_IMAGES)[number];
   matched: boolean;
 };
-
-const EMOJIS = ['🦋', '🌈', '🍄', '🌻', '🧸', '🎈', '🍰', '🚲'];
-const BOARD_SIZE = 4;
-const CARD_SIZE = 96;
-const PREVIEW_DELAY_MS = 500;
 
 function shuffle<T>(array: T[]): T[] {
   const arr = array.slice();
@@ -24,21 +35,23 @@ function shuffle<T>(array: T[]): T[] {
 }
 
 function createDeck(pairCount = 8): Card[] {
-  const selected = EMOJIS.slice(0, pairCount);
-  const deck = selected.flatMap((emoji, index) => [
-    { id: index * 2, emoji, matched: false },
-    { id: index * 2 + 1, emoji, matched: false },
+  const shuffledImages = shuffle(CARD_IMAGES).slice(0, pairCount);
+  const deck = shuffledImages.flatMap((image, index) => [
+    { id: index * 2, image, matched: false },
+    { id: index * 2 + 1, image, matched: false },
   ]);
   return shuffle(deck);
 }
 
 export default function MemoryGameRoute() {
+  const { width } = useWindowDimensions();
   const [deck, setDeck] = useState<Card[]>(() => createDeck(8));
   const [flipped, setFlipped] = useState<number[]>([]);
   const [disabled, setDisabled] = useState(false);
   const [moves, setMoves] = useState(0);
   const [time, setTime] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
+  const [gridLayout, setGridLayout] = useState({ width: 0, height: 0 });
 
   useEffect(() => {
     if (!isRunning) return;
@@ -55,13 +68,6 @@ export default function MemoryGameRoute() {
   const isFinished = useMemo(() => deck.length > 0 && deck.every((c) => c.matched), [deck]);
   const minutes = Math.floor(time / 60);
   const seconds = String(time % 60).padStart(2, '0');
-  const gridRows = useMemo(
-    () =>
-      Array.from({ length: Math.ceil(deck.length / BOARD_SIZE) }, (_, rowIndex) =>
-        deck.slice(rowIndex * BOARD_SIZE, rowIndex * BOARD_SIZE + BOARD_SIZE),
-      ),
-    [deck],
-  );
 
   const handleCardPress = (index: number) => {
     if (disabled) return;
@@ -85,7 +91,7 @@ export default function MemoryGameRoute() {
       setDisabled(true);
       setMoves((m) => m + 1);
 
-      if (firstCard.emoji === secondCard.emoji) {
+      if (firstCard.image === secondCard.image) {
         setTimeout(() => {
           setDeck((prev) =>
             prev.map((c, i) => (i === firstIndex || i === secondIndex ? { ...c, matched: true } : c)),
@@ -132,24 +138,38 @@ export default function MemoryGameRoute() {
           </View>
         ) : null}
 
-        <View style={styles.grid}>
-          {gridRows.map((rowCards, rowIndex) => (
-            <View key={`row-${rowIndex}`} style={styles.gridRow}>
-              {rowCards.map((card, colIndex) => {
-                const index = rowIndex * BOARD_SIZE + colIndex;
-                const isOpen = flipped.includes(index) || card.matched;
-                return (
-                  <Pressable
-                    key={card.id}
-                    style={[styles.card, isOpen && styles.cardOpen, card.matched && styles.cardMatched]}
-                    onPress={() => handleCardPress(index)}
-                  >
-                    <Text style={[styles.cardInner, isOpen && styles.cardInnerOpen]}>{isOpen ? card.emoji : '？'}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          ))}
+        <View
+          style={styles.grid}
+          onLayout={(event) => setGridLayout(event.nativeEvent.layout)}
+        >
+          {deck.map((card, index) => {
+            const isOpen = flipped.includes(index) || card.matched;
+            return (
+              <Pressable
+                key={card.id}
+                style={[
+                  styles.card,
+                  getCardSizeStyle(width, gridLayout.width, gridLayout.height),
+                  isOpen && styles.cardOpen,
+                  card.matched && styles.cardMatched,
+                ]}
+                onPress={() => handleCardPress(index)}
+              >
+                <Image
+                  source={isOpen ? card.image : BACK_IMAGE}
+                  style={styles.cardImage}
+                  resizeMode="contain"
+                />
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <View style={styles.helperBox}>
+          <Text style={styles.helperTitle}>기억력 챌린지 팁</Text>
+          <Text style={styles.helperText}>
+            색깔과 무늬를 묶어서 기억하면 더 빨리 짝을 찾을 수 있어요. 카드 위치를 머릿속으로 스케치해보세요.
+          </Text>
         </View>
       </View>
     </SafeAreaView>
@@ -203,17 +223,16 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   grid: {
-    gap: 12,
-    marginTop: 8,
-  },
-  gridRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'center',
     gap: 12,
+    marginTop: 8,
+    alignSelf: 'center',
+    flex: 1,
+    width: '100%',
   },
   card: {
-    width: CARD_SIZE,
-    height: CARD_SIZE,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
@@ -228,11 +247,60 @@ const styles = StyleSheet.create({
   cardMatched: {
     backgroundColor: '#bbf7d0',
   },
-  cardInner: {
-    fontSize: 36,
-    color: '#ffffff',
+  cardImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 12,
   },
-  cardInnerOpen: {
-    color: '#111827',
+  helperBox: {
+    marginTop: 16,
+    backgroundColor: BrandColors.surface,
+    borderRadius: 18,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: BrandColors.border,
+    ...Shadows.card,
+  },
+  helperTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: BrandColors.textPrimary,
+    marginBottom: 4,
+  },
+  helperText: {
+    color: BrandColors.textSecondary,
+    lineHeight: 20,
   },
 });
+
+const GRID_COLUMNS = 4;
+const GRID_ROWS = 4;
+const GRID_GAP = 12;
+const HORIZONTAL_PADDING = 24;
+const CARD_ASPECT_RATIO = 1669 / 1024; // height / width
+
+function getCardSizeStyle(screenWidth: number, containerWidth: number, containerHeight: number) {
+  const safeWidth = Math.max(screenWidth, 320);
+  const effectiveWidth = containerWidth > 0 ? containerWidth : safeWidth - HORIZONTAL_PADDING * 2;
+  const availableWidth = Math.max(effectiveWidth, 1);
+  const totalWidthGap = GRID_GAP * (GRID_COLUMNS - 1);
+  const widthLimit = (availableWidth - totalWidthGap) / GRID_COLUMNS;
+
+  const fallbackHeight = widthLimit * CARD_ASPECT_RATIO * GRID_ROWS + GRID_GAP * (GRID_ROWS - 1);
+  const effectiveHeight = containerHeight > 0 ? containerHeight : fallbackHeight;
+  const totalHeightGap = GRID_GAP * (GRID_ROWS - 1);
+  const heightLimit = (effectiveHeight - totalHeightGap) / GRID_ROWS;
+
+  let cardWidth = widthLimit;
+  let cardHeight = cardWidth * CARD_ASPECT_RATIO;
+
+  if (cardHeight > heightLimit) {
+    cardHeight = heightLimit;
+    cardWidth = cardHeight / CARD_ASPECT_RATIO;
+  }
+
+  return {
+    width: Math.floor(cardWidth),
+    height: Math.floor(cardHeight),
+  };
+}

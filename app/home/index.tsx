@@ -175,31 +175,6 @@ export default function AuthenticatedHome() {
           <HaemayaMascot size={isCompact ? 96 : 120} />
         </View>
 
-        <View
-          style={{
-            backgroundColor: '#FFEAF5',
-            borderRadius: 24,
-            padding: 22,
-            gap: 12,
-            ...Shadows.card,
-          }}>
-          <Text style={{ fontSize: 20, fontWeight: '800', color: BrandColors.textPrimary }}>같은 그림 찾기</Text>
-          <Text style={{ color: BrandColors.textSecondary, lineHeight: 20 }}>
-            두 그림을 비교하며 집중력과 관찰력을 길러보세요.
-          </Text>
-          <Pressable
-            onPress={() => router.push('/games/spot-difference')}
-            style={{
-              alignSelf: 'flex-start',
-              backgroundColor: BrandColors.primary,
-              paddingHorizontal: 18,
-              paddingVertical: 10,
-              borderRadius: 999,
-            }}>
-            <Text style={{ color: '#fff', fontWeight: '700' }}>바로 시작하기</Text>
-          </Pressable>
-        </View>
-
         <View style={{ gap: 12 }}>
           <Text style={{ fontSize: 20, fontWeight: '800', color: BrandColors.textPrimary }}>해마 케어 서비스</Text>
           <View
@@ -231,7 +206,7 @@ export default function AuthenticatedHome() {
           </View>
         </View>
 
-        <View style={{ gap: 14 }}>
+        <View style={{ gap: 14, paddingHorizontal: 4 }}>
           <Text style={{ fontSize: 20, fontWeight: '800', color: BrandColors.textPrimary }}>추천 기능</Text>
           {SUPPORT_CARDS.map((card) => (
             <Pressable
@@ -244,6 +219,7 @@ export default function AuthenticatedHome() {
                 gap: 8,
                 borderWidth: 1,
                 borderColor: BrandColors.border,
+                marginHorizontal: 4,
                 ...Shadows.card,
               }}>
               <Text style={{ fontSize: 18, fontWeight: '800', color: BrandColors.textPrimary }}>{card.title}</Text>
