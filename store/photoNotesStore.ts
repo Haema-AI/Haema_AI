@@ -3,6 +3,7 @@ import { loadPhotoNotes, persistPhotoNotes } from '@/lib/storage/photoNotesStora
 import * as FileSystem from 'expo-file-system/legacy';
 import { create } from 'zustand';
 import type { PhotoNote } from '@/types/photoNote';
+import type { SpeechMetrics } from '@/types/speech';
 
 const AUDIO_DIRECTORY = `${FileSystem.documentDirectory ?? ''}photo-notes/audio/`;
 
@@ -17,6 +18,8 @@ type CreatePhotoNoteInput = {
   imageId: string;
   description: string;
   audioUri?: string;
+  transcript?: string;
+  metrics?: SpeechMetrics;
 };
 
 type PhotoNotesState = {
@@ -48,7 +51,7 @@ export const usePhotoNotesStore = create<PhotoNotesState>((set, get) => ({
     const existing = await loadPhotoNotes();
     set({ notes: existing, hasHydrated: true });
   },
-  addNote: async ({ imageId, description, audioUri }) => {
+  addNote: async ({ imageId, description, audioUri, transcript, metrics }) => {
     const now = Date.now();
     const persistedAudioUri = await persistAudioFile(audioUri);
     const note: PhotoNote = {
@@ -56,6 +59,8 @@ export const usePhotoNotesStore = create<PhotoNotesState>((set, get) => ({
       imageId,
       description,
       audioUri: persistedAudioUri,
+      transcript,
+      metrics,
       createdAt: now,
       updatedAt: now,
     };
