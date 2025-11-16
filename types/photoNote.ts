@@ -1,3 +1,5 @@
+import type { SpeechMetrics } from './speech';
+
 export type PhotoNote = {
   id: string;
   imageId: string;
@@ -5,4 +7,6 @@ export type PhotoNote = {
   createdAt: number;
   updatedAt: number;
   audioUri?: string;
+  transcript?: string;
+  metrics?: SpeechMetrics;
 };

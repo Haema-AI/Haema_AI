@@ -1,8 +1,10 @@
 import { createId } from '@/lib/conversation';
 import { loadPhotoNotes, persistPhotoNotes } from '@/lib/storage/photoNotesStorage';
+import { supabase } from '@/lib/supabase';
 import * as FileSystem from 'expo-file-system/legacy';
 import { create } from 'zustand';
 import type { PhotoNote } from '@/types/photoNote';
+import type { SpeechMetrics } from '@/types/speech';
 
 const AUDIO_DIRECTORY = `${FileSystem.documentDirectory ?? ''}photo-notes/audio/`;
 
@@ -17,6 +19,8 @@ type CreatePhotoNoteInput = {
   imageId: string;
   description: string;
   audioUri?: string;
+  transcript?: string;
+  metrics?: SpeechMetrics;
 };
 
 type PhotoNotesState = {
@@ -48,7 +52,7 @@ export const usePhotoNotesStore = create<PhotoNotesState>((set, get) => ({
     const existing = await loadPhotoNotes();
     set({ notes: existing, hasHydrated: true });
   },
-  addNote: async ({ imageId, description, audioUri }) => {
+  addNote: async ({ imageId, description, audioUri, transcript, metrics }) => {
     const now = Date.now();
     const persistedAudioUri = await persistAudioFile(audioUri);
     const note: PhotoNote = {
@@ -56,12 +60,42 @@ export const usePhotoNotesStore = create<PhotoNotesState>((set, get) => ({
       imageId,
       description,
       audioUri: persistedAudioUri,
+      transcript,
+      metrics,
       createdAt: now,
       updatedAt: now,
     };
     const nextNotes = [note, ...get().notes];
     set({ notes: nextNotes });
     await persistPhotoNotes(nextNotes);
+    void syncNoteToSupabase(note);
     return note;
   },
 }));
+
+async function syncNoteToSupabase(note: PhotoNote) {
+  if (!supabase?.from) return;
+  try {
+    const { error } = await supabase
+      .from('photo_notes')
+      .upsert(
+        {
+          id: note.id,
+          image_id: note.imageId,
+          description: note.description,
+          transcript: note.transcript,
+          metrics: note.metrics ?? null,
+          recorded_at: new Date(note.createdAt).toISOString(),
+          updated_at: new Date(note.updatedAt).toISOString(),
+        },
+        { onConflict: 'id' },
+      );
+    if (error && __DEV__) {
+      console.warn('사진 노트를 Supabase에 동기화하지 못했습니다.', error.message);
+    }
+  } catch (error) {
+    if (__DEV__) {
+      console.warn('사진 노트를 Supabase에 동기화하지 못했습니다.', error);
+    }
+  }
+}

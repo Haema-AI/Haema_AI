@@ -1,10 +1,12 @@
 import { BrandColors, Shadows } from '@/constants/theme';
-import { transcribeAudio } from '@/lib/stt';
+import { calculateSpeechMetrics } from '@/lib/analysis/speechMetrics';
+import { transcribeAudioDetailed } from '@/lib/stt';
 import { startVoiceRecording, type RecordingHandle } from '@/lib/voice';
 import { usePhotoNotesStore } from '@/store/photoNotesStore';
+import * as DocumentPicker from 'expo-document-picker';
 import { Image } from 'expo-image';
 import { Stack } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -13,7 +15,6 @@ import {
   Pressable,
   ScrollView,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,18 +22,17 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 const IMAGE_ID = 'test-image';
 const IMAGE_SOURCE = require('@/assets/test_image.png');
 
+const FOLLOWUP_MESSAGE = '고생하셨습니다! 건강 통계 > 사진 설명에서 지표를 확인하고, 다음 달에도 다시 측정해 주세요.';
+
 export default function PhotoNoteScreen() {
-  const notes = usePhotoNotesStore((state) => state.notes);
   const hydrate = usePhotoNotesStore((state) => state.hydrate);
   const addNote = usePhotoNotesStore((state) => state.addNote);
 
   const [recordingHandle, setRecordingHandle] = useState<RecordingHandle | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
-  const [description, setDescription] = useState('');
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
-  const [latestAudioUri, setLatestAudioUri] = useState<string | undefined>();
-  const [isSaving, setIsSaving] = useState(false);
+  const [hasRecentResult, setHasRecentResult] = useState(false);
   const insets = useSafeAreaInsets();
 
   useEffect(() => {
@@ -47,11 +47,10 @@ export default function PhotoNoteScreen() {
     };
   }, [recordingHandle]);
 
-  const imageNotes = useMemo(() => notes.filter((note) => note.imageId === IMAGE_ID), [notes]);
-
   const handleStartRecording = useCallback(async () => {
     try {
       setStatusMessage(null);
+      setHasRecentResult(false);
       const handle = await startVoiceRecording();
       setRecordingHandle(handle);
       setIsRecording(true);
@@ -71,57 +70,65 @@ export default function PhotoNoteScreen() {
       console.error('녹음 취소 실패', error);
     } finally {
       setRecordingHandle(null);
+      setHasRecentResult(false);
     }
   }, [recordingHandle]);
+
+  const processAudioFile = useCallback(
+    async (uri: string) => {
+      setIsTranscribing(true);
+      try {
+        const transcript = await transcribeAudioDetailed(uri, { language: 'en' });
+        const metrics = calculateSpeechMetrics(transcript);
+        await addNote({
+          imageId: IMAGE_ID,
+          description: transcript.text,
+          audioUri: uri,
+          transcript: transcript.text,
+          metrics,
+        });
+        setStatusMessage('분석 결과가 저장되었습니다. 건강 통계 > 사진 설명에서 확인해 주세요.');
+        setHasRecentResult(true);
+      } catch (error) {
+        console.error('오디오 처리 실패', error);
+        setStatusMessage('음성을 문자로 변환하지 못했습니다. 직접 내용을 적어주세요.');
+        Alert.alert('인식 실패', error instanceof Error ? error.message : '파일 처리 중 문제가 발생했습니다.');
+      } finally {
+        setIsTranscribing(false);
+      }
+    },
+    [],
+  );
 
   const handleStopRecording = useCallback(async () => {
     if (!recordingHandle) return;
     setIsRecording(false);
-    setIsTranscribing(true);
     try {
       const result = await recordingHandle.stop();
       if (!result?.fileUri) {
         setStatusMessage('녹음이 취소되었습니다.');
         return;
       }
-
-      setLatestAudioUri(result.fileUri);
-      const transcript = await transcribeAudio(result.fileUri, { language: 'ko' });
-      setDescription(transcript);
-      setStatusMessage('음성 인식이 완료되었습니다.');
+      await processAudioFile(result.fileUri);
     } catch (error) {
       console.error('녹음 정지 실패', error);
       setStatusMessage('음성을 문자로 변환하지 못했습니다. 직접 내용을 적어주세요.');
       Alert.alert('인식 실패', error instanceof Error ? error.message : '녹음 처리 중 문제가 발생했습니다.');
     } finally {
       setRecordingHandle(null);
-      setIsTranscribing(false);
     }
-  }, [recordingHandle]);
+  }, [processAudioFile, recordingHandle]);
 
-  const handleSave = useCallback(async () => {
-    const trimmed = description.trim();
-    if (!trimmed) {
-      Alert.alert('설명 필요', '음성 인식 결과가 없다면 직접 내용을 입력해 주세요.');
-      return;
-    }
-    setIsSaving(true);
+  const handlePickAudioFile = useCallback(async () => {
     try {
-      await addNote({
-        imageId: IMAGE_ID,
-        description: trimmed,
-        audioUri: latestAudioUri,
-      });
-      setDescription('');
-      setLatestAudioUri(undefined);
-      setStatusMessage('설명이 저장되었습니다.');
+      const result = await DocumentPicker.getDocumentAsync({ type: 'audio/*', multiple: false });
+      if (result.canceled || !result.assets?.[0]?.uri) return;
+      await processAudioFile(result.assets[0].uri);
     } catch (error) {
-      console.error('사진 노트 저장 실패', error);
-      Alert.alert('저장 실패', error instanceof Error ? error.message : '설명을 저장하지 못했습니다.');
-    } finally {
-      setIsSaving(false);
+      console.error('오디오 파일 선택 실패', error);
+      Alert.alert('파일 선택 실패', error instanceof Error ? error.message : '오디오 파일을 불러오지 못했습니다.');
     }
-  }, [description, addNote, latestAudioUri]);
+  }, [processAudioFile]);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: BrandColors.background }} edges={['top', 'left', 'right']}>
@@ -206,6 +213,21 @@ export default function PhotoNoteScreen() {
                 </Pressable>
               ) : null}
             </View>
+            <Pressable
+              onPress={handlePickAudioFile}
+              disabled={isTranscribing}
+              style={{
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: BrandColors.border,
+                paddingVertical: 14,
+                alignItems: 'center',
+                backgroundColor: isTranscribing ? BrandColors.surface : BrandColors.surfaceSoft,
+              }}>
+              <Text style={{ color: BrandColors.textPrimary, fontWeight: '600' }}>
+                오디오 파일 불러오기
+              </Text>
+            </Pressable>
 
             {isTranscribing ? (
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -215,89 +237,24 @@ export default function PhotoNoteScreen() {
             ) : null}
 
             {statusMessage ? <Text style={{ color: BrandColors.textSecondary }}>{statusMessage}</Text> : null}
-          </View>
-
-          <View
-            style={{
-              backgroundColor: BrandColors.surface,
-              borderRadius: 24,
-              padding: 20,
-              gap: 12,
-              borderWidth: 1,
-              borderColor: BrandColors.border,
-              ...Shadows.card,
-            }}>
-            <Text style={{ fontSize: 18, fontWeight: '700', color: BrandColors.textPrimary }}>텍스트 편집</Text>
-            <TextInput
-              value={description}
-              onChangeText={setDescription}
-              multiline
-              placeholder="음성 인식으로 작성된 설명이 여기에 표시됩니다."
-              placeholderTextColor={BrandColors.textSecondary}
-              style={{
-                minHeight: 140,
-                borderWidth: 1,
-                borderColor: BrandColors.border,
-                borderRadius: 18,
-                padding: 16,
-                backgroundColor: BrandColors.surfaceSoft,
-                color: BrandColors.textPrimary,
-                textAlignVertical: 'top',
-                lineHeight: 20,
-              }}
-            />
-            <Pressable
-              onPress={handleSave}
-              disabled={isSaving}
-              style={{
-                borderRadius: 18,
-                paddingVertical: 16,
-                alignItems: 'center',
-                backgroundColor: isSaving ? BrandColors.border : BrandColors.primary,
-              }}>
-              {isSaving ? <ActivityIndicator color="#fff" /> : <Text style={{ color: '#fff', fontWeight: '700' }}>설명 저장하기</Text>}
-            </Pressable>
-          </View>
-
-          <View style={{ gap: 14 }}>
-            <Text style={{ fontSize: 18, fontWeight: '700', color: BrandColors.textPrimary }}>저장된 설명</Text>
-            {imageNotes.length === 0 ? (
+            {hasRecentResult ? (
               <View
                 style={{
-                  backgroundColor: BrandColors.surface,
-                  borderRadius: 20,
-                  padding: 20,
+                  borderRadius: 18,
                   borderWidth: 1,
                   borderColor: BrandColors.border,
+                  backgroundColor: BrandColors.surfaceSoft,
+                  padding: 16,
+                  gap: 8,
                 }}>
-                <Text style={{ color: BrandColors.textSecondary }}>아직 저장된 설명이 없습니다.</Text>
+                <Text style={{ fontSize: 16, fontWeight: '700', color: BrandColors.textPrimary }}>분석이 완료되었어요</Text>
+                <Text style={{ color: BrandColors.textSecondary, lineHeight: 20 }}>{FOLLOWUP_MESSAGE}</Text>
               </View>
-            ) : (
-              imageNotes.map((note) => (
-                <View
-                  key={note.id}
-                  style={{
-                    backgroundColor: BrandColors.surface,
-                    borderRadius: 20,
-                    padding: 20,
-                    gap: 8,
-                    borderWidth: 1,
-                    borderColor: BrandColors.border,
-                    ...Shadows.card,
-                  }}>
-                  <Text style={{ fontSize: 13, color: BrandColors.textSecondary }}>
-                    {new Date(note.updatedAt).toLocaleString('ko-KR', {
-                      month: 'long',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </Text>
-                  <Text style={{ color: BrandColors.textPrimary, lineHeight: 22 }}>{note.description}</Text>
-                </View>
-              ))
-            )}
+            ) : null}
           </View>
+
+
+
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
