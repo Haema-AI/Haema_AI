@@ -3,6 +3,12 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
+function isValidSupabaseConfig() {
+  if (!supabaseUrl || !supabaseAnonKey) return false;
+  if (supabaseUrl.includes('YOUR_PROJECT_ID') || supabaseAnonKey.includes('YOUR_ANON_KEY')) return false;
+  return true;
+}
+
 function createFallbackClient(): SupabaseClient {
   let hasWarned = false;
   const warn = () => {
@@ -29,5 +35,6 @@ function createFallbackClient(): SupabaseClient {
   } as unknown as SupabaseClient;
 }
 
-export const supabase =
-  supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : createFallbackClient();
+export const supabase = isValidSupabaseConfig()
+  ? createClient(supabaseUrl!, supabaseAnonKey!)
+  : createFallbackClient();
