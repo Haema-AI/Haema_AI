@@ -1,6 +1,6 @@
 import { BrandColors, Shadows } from '@/constants/theme';
 import { useEffect, useMemo, useState } from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const CARD_LIBRARY = [
@@ -22,6 +22,8 @@ const BACK_IMAGE = require('@/assets/hwatu/backside.png');
 const SEQUENCE_LENGTH = 4;
 const PREVIEW_DURATION = 800;
 const PREVIEW_GAP = 250;
+// 카드 크기 전체 스케일 조절용. 1보다 작게 주면 작아지고, 크게 주면 커집니다.
+const CARD_SCALE = 0.9;
 
 type Stage = 'ready' | 'showing' | 'input' | 'result';
 type ResultState = 'success' | 'fail' | null;
@@ -41,6 +43,7 @@ function pickSequence(): CardInfo[] {
 }
 
 export default function SequenceMemoryGame() {
+  const { width, height } = useWindowDimensions();
   const initialSequence = useMemo(() => pickSequence(), []);
   const [sequence, setSequence] = useState<CardInfo[]>(initialSequence);
   const [gridCards, setGridCards] = useState<CardInfo[]>(initialSequence);
@@ -157,17 +160,37 @@ export default function SequenceMemoryGame() {
     }
   })();
 
+  const cardDimensions = useMemo(() => {
+    const horizontalPadding = 18;
+    const gridGap = 10;
+    const cardAspect = 0.6; // width / height of 카드 이미지 비율
+    const availableWidth = width - horizontalPadding * 2 - gridGap;
+    const twoColWidth = availableWidth / 2;
+
+    // 다른 요소(타이틀, 점수, 안내, 버튼)들이 차지하는 대략적인 높이를 제외하고 계산
+    const reservedVerticalSpace = 700;
+    const maxCardHeight = Math.max((height - reservedVerticalSpace) / 2, 90);
+    const maxCardWidthFromHeight = maxCardHeight * cardAspect;
+
+    // 2열 고정을 우선시하되, 높이 제한이 있으면 약간만 줄임
+    const desiredWidth = Math.min(twoColWidth, maxCardWidthFromHeight);
+    const minWidthForTwoCols = twoColWidth - 6;
+    const cardWidth = Math.max(desiredWidth, minWidthForTwoCols) * CARD_SCALE;
+    const cardHeight = (cardWidth / cardAspect) * CARD_SCALE;
+
+    return { cardWidth, cardHeight };
+  }, [width, height]);
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: BrandColors.background }} edges={['top', 'left', 'right']}>
       <ScrollView
         contentContainerStyle={{
-          padding: 24,
-          paddingBottom: 32,
-          gap: 20,
+          padding: 14,
+          paddingBottom: 24,
+          gap: 12,
         }}>
         <View style={{ gap: 6 }}>
           <Text style={styles.title}>화투 순서 기억하기</Text>
-          <Text style={styles.subtitle}>4장의 카드를 보고 같은 순서로 눌러보세요.</Text>
         </View>
 
         <View style={styles.scoreRow}>
@@ -196,6 +219,7 @@ export default function SequenceMemoryGame() {
                 disabled={disabled}
                 style={[
                   styles.card,
+                  { width: cardDimensions.cardWidth, height: cardDimensions.cardHeight },
                   isHighlighted && styles.cardHighlight,
                   badge && styles.cardSelected,
                   isWrong && styles.cardWrong,
@@ -268,7 +292,7 @@ const styles = StyleSheet.create({
   scoreRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: 8,
   },
   scoreCard: {
     flex: 1,
@@ -292,24 +316,19 @@ const styles = StyleSheet.create({
   instructionBox: {
     backgroundColor: BrandColors.surfaceSoft,
     borderRadius: 18,
-    padding: 16,
+    padding: 10,
     borderWidth: 1,
     borderColor: BrandColors.border,
   },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 16,
+    gap: 12,
     justifyContent: 'center',
   },
   card: {
-    width: '46%',
-    aspectRatio: 1669 / 1024,
-    borderRadius: 18,
-    borderWidth: 2,
-    borderColor: 'rgba(0,0,0,0.08)',
-    backgroundColor: '#fff',
-    padding: 10,
+    borderRadius: 16,
+    padding: 0,
     ...Shadows.card,
   },
   cardHighlight: {
@@ -325,7 +344,8 @@ const styles = StyleSheet.create({
   cardImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 12,
+    borderRadius: 16,
+    resizeMode: 'cover',
   },
   cardLabel: {
     position: 'absolute',
