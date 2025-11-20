@@ -1,5 +1,6 @@
 import { BrandColors, Shadows } from '@/constants/theme';
-import { getAssistantReply } from '@/lib/assistant';
+import { IS_EXECUTORCH_ASSISTANT } from '@/lib/assistantConfig';
+import { useAssistantEngine } from '@/lib/assistantEngine';
 import { extractKeywords } from '@/lib/conversation';
 import { say, stopSpeaking } from '@/lib/speech';
 import { transcribeAudio } from '@/lib/stt';
@@ -10,9 +11,10 @@ import type { ChatMessage } from '@/types/chat';
 import { Ionicons } from '@expo/vector-icons';
 import * as FileSystem from 'expo-file-system/legacy';
 import { router } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
 import {
+  ActivityIndicator,
   Alert,
   Animated,
   FlatList,
@@ -20,8 +22,9 @@ import {
   Platform,
   Pressable,
   Text,
-  View,
+  TextInput,
   useWindowDimensions,
+  View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Circle } from 'react-native-svg';
@@ -98,6 +101,7 @@ function TypingIndicator() {
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 const MAX_RECORDING_DURATION_MS = 60_000;
 const COUNTDOWN_UPDATE_INTERVAL_MS = 200;
+const INPUT_SECTION_HEIGHT = 220;
 
 function formatDuration(ms: number) {
   const safeMs = Math.max(0, ms);
@@ -124,25 +128,7 @@ function RecordButton({
   onPress: () => void;
   disabled?: boolean;
 }) {
-  const scale = useRef(new Animated.Value(1)).current;
-  const iconScale = useRef(new Animated.Value(1)).current;
   const countdown = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    Animated.timing(scale, {
-      toValue: recording ? 1 + Math.min(level, 1) * 0.2 + 0.05 : 1,
-      duration: 120,
-      useNativeDriver: true,
-    }).start();
-  }, [recording, level, scale]);
-
-  useEffect(() => {
-    Animated.timing(iconScale, {
-      toValue: recording ? 1 + Math.min(level, 1) * 0.3 : 1,
-      duration: 120,
-      useNativeDriver: true,
-    }).start();
-  }, [recording, level, iconScale]);
 
   useEffect(() => {
     Animated.timing(countdown, {
@@ -163,9 +149,8 @@ function RecordButton({
 
   return (
     <Pressable onPress={onPress} disabled={disabled} style={{ alignItems: 'center' }}>
-      <Animated.View
+      <View
         style={{
-          transform: [{ scale }],
           width: outerSize,
           height: outerSize,
           borderRadius: outerSize / 2,
@@ -210,11 +195,9 @@ function RecordButton({
             shadowOpacity: recording ? 0.35 : 0.2,
             shadowRadius: 14,
           }}>
-          <Animated.View style={{ transform: [{ scale: iconScale }] }}>
-            <Ionicons name={recording ? 'stop' : 'mic'} size={32} color="#fff" />
-          </Animated.View>
+          <Ionicons name={recording ? 'stop' : 'mic'} size={32} color="#fff" />
         </View>
-      </Animated.View>
+      </View>
       {recording ? (
         <Text
           style={{
@@ -279,16 +262,30 @@ export default function Chat() {
   const { messages, addMessage, addAssistantMessage, isResponding, setResponding, reset, conversationId } =
     useChatStore();
   const addRecord = useRecordsStore((state) => state.addRecordFromMessages);
-  const [, setIsSpeaking] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
+  const [isSavingRecord, setIsSavingRecord] = useState(false);
   const [recordingLevel, setRecordingLevel] = useState(0);
   const [recordingRemainingMs, setRecordingRemainingMs] = useState(MAX_RECORDING_DURATION_MS);
+  const [textInput, setTextInput] = useState('');
   const recordingHandleRef = useRef<RecordingHandle | null>(null);
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const recordingCountdownStartedAtRef = useRef<number | null>(null);
   const isStoppingRecordingRef = useRef(false);
   const insets = useSafeAreaInsets();
+  const {
+    generateReply: generateAssistantReply,
+    isReady: isLLMReady,
+    error: assistantError,
+  } = useAssistantEngine();
+  const blockingMessage = useMemo(() => {
+    if (isSavingRecord) return '요약을 저장하는 중입니다.';
+    if (isTranscribing) return '음성을 받아쓰는 중입니다.';
+    if (isResponding) return 'AI 응답을 생성 중입니다.';
+    if (isSpeaking) return '음성을 재생 중입니다.';
+    return null;
+  }, [isResponding, isSavingRecord, isSpeaking, isTranscribing]);
 
   function clearRecordingCountdown() {
     if (countdownIntervalRef.current) {
@@ -318,6 +315,19 @@ export default function Chat() {
 
   const sendTranscript = async (transcript: string) => {
     if (!transcript.trim() || isResponding) return;
+    if (!isLLMReady) {
+      Alert.alert('AI 준비 중', '모델을 불러오는 중입니다. 잠시 후 다시 시도해주세요.');
+      return;
+    }
+    if (assistantError) {
+      Alert.alert(
+        'AI 연결 오류',
+        IS_EXECUTORCH_ASSISTANT
+          ? '로컬 LLM을 불러오지 못했습니다. 네트워크 상태를 확인한 뒤 앱을 다시 실행해주세요.'
+          : 'OpenAI 연결 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.'
+      );
+      return;
+    }
 
     const text = transcript.trim();
 
@@ -336,22 +346,43 @@ export default function Chat() {
 
     try {
       const keywords = extractKeywords(conversation);
-      const assistantReply = await getAssistantReply(conversation, keywords);
-      const assistantMessage = addAssistantMessage(assistantReply);
-      scrollToEnd();
-      setResponding(false);
+      const assistantReply = await generateAssistantReply(conversation, keywords);
+      let assistantMessage: ChatMessage | null = null;
+      const ensureAssistantMessage = () => {
+        if (!assistantMessage) {
+          assistantMessage = addAssistantMessage(assistantReply);
+          scrollToEnd();
+          setResponding(false);
+        }
+        return assistantMessage;
+      };
       stopSpeaking();
-      void say(assistantMessage.text, {
-        onStart: () => setIsSpeaking(true),
+      void say(assistantReply, {
+        onStart: () => {
+          ensureAssistantMessage();
+          setIsSpeaking(true);
+        },
         onComplete: () => setIsSpeaking(false),
-        onError: () => setIsSpeaking(false),
-      }).catch(() => setIsSpeaking(false));
+        onError: () => {
+          ensureAssistantMessage();
+          setIsSpeaking(false);
+        },
+      }).catch(() => {
+        ensureAssistantMessage();
+        setIsSpeaking(false);
+      });
     } catch (error) {
       console.error(error);
       Alert.alert('대화 오류', '응답을 생성하지 못했습니다. 잠시 후 다시 시도해주세요.');
-    } finally {
       setResponding(false);
     }
+  };
+
+  const handleSendTextMessage = () => {
+    const trimmed = textInput.trim();
+    if (!trimmed || isResponding) return;
+    setTextInput('');
+    void sendTranscript(trimmed);
   };
 
   const stopActiveRecording = async (reason: 'manual' | 'timeout') => {
@@ -440,6 +471,7 @@ export default function Chat() {
   };
 
   const handleSaveRecord = useCallback(async () => {
+    if (isSavingRecord) return;
     const chatMessages = useChatStore.getState().messages;
     if (chatMessages.length < 2) {
       Alert.alert('저장 불가', '대화가 조금 더 쌓인 후에 기록을 저장할 수 있어요.');
@@ -447,6 +479,7 @@ export default function Chat() {
     }
 
     try {
+      setIsSavingRecord(true);
       const record = await addRecord({
         messages: chatMessages.map((message) => ({ ...message })),
         title: chatMessages.find((message) => message.role === 'user')?.text.slice(0, 18) ?? undefined,
@@ -460,8 +493,10 @@ export default function Chat() {
     } catch (error) {
       console.error('대화 기록 저장 실패', error);
       Alert.alert('저장 실패', '대화 기록을 저장하지 못했습니다. 잠시 후 다시 시도해주세요.');
+    } finally {
+      setIsSavingRecord(false);
     }
-  }, [addRecord, conversationId]);
+  }, [addRecord, conversationId, isSavingRecord]);
 
   const handleReset = () => {
     Alert.alert('새 대화 시작', '현재 대화를 초기화할까요?', [
@@ -544,73 +579,152 @@ export default function Chat() {
                     onPress={() => {
                       void handleSaveRecord();
                     }}
-                    disabled={isResponding}
+                    disabled={Boolean(blockingMessage)}
                     style={{ flex: 1 }}
                   />
                   <HeaderActionButton
                     label="새 대화"
                     onPress={handleReset}
                     variant="surface"
-                    disabled={isResponding}
+                    disabled={Boolean(blockingMessage)}
                     style={{ flex: 1 }}
                   />
                 </View>
               </View>
             </View>
           </View>
+          <View
+            style={{
+              flex: 1.15,
+              backgroundColor: BrandColors.surface,
+              borderRadius: 32,
+              paddingVertical: 28,
+              paddingHorizontal: isNarrow ? 18 : 22,
+              ...Shadows.card,
+            }}>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: BrandColors.textPrimary, marginBottom: 12 }}>
+              오늘의 대화
+            </Text>
+            <FlatList
+              ref={listRef}
+              data={messages}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => <MessageBubble message={item} />}
+              style={{ flex: 1 }}
+              contentContainerStyle={{ paddingVertical: 12 }}
+              ListEmptyComponent={
+                <View style={{ alignItems: 'center', marginTop: 72, paddingHorizontal: 24, gap: 10 }}>
+                  <Text style={{ fontSize: 18, fontWeight: '700', color: BrandColors.textPrimary }}>대화를 시작해보세요</Text>
+                  <Text style={{ color: BrandColors.textSecondary, textAlign: 'center', lineHeight: 20 }}>
+                    기억하고 싶은 일이나 걱정되는 점을 이야기해봐요!{"\n"} 해마가 함께 정리해드려요.
+                  </Text>
+                </View>
+              }
+              ListFooterComponent={isResponding ? <TypingIndicator /> : <View style={{ height: 24 }} />}
+            />
+          </View>
+        </View>
 
         <View
           style={{
-            flex: 1.15,
+            paddingHorizontal: 20,
+            paddingTop: 12,
+            paddingBottom: 12 + insets.bottom,
+            borderTopWidth: 1,
+            borderColor: BrandColors.border,
             backgroundColor: BrandColors.surface,
-            borderRadius: 32,
-            paddingVertical: 28,
-            paddingHorizontal: isNarrow ? 18 : 22,
-            ...Shadows.card,
+            gap: 14,
+            height: INPUT_SECTION_HEIGHT,
           }}>
-          <Text style={{ fontSize: 16, fontWeight: '700', color: BrandColors.textPrimary, marginBottom: 12 }}>
-            오늘의 대화
-          </Text>
-          <FlatList
-            ref={listRef}
-            data={messages}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => <MessageBubble message={item} />}
-            style={{ flex: 1 }}
-            contentContainerStyle={{ paddingVertical: 12 }}
-            ListEmptyComponent={
-              <View style={{ alignItems: 'center', marginTop: 72, paddingHorizontal: 24, gap: 10 }}>
-                <Text style={{ fontSize: 18, fontWeight: '700', color: BrandColors.textPrimary }}>대화를 시작해보세요</Text>
-                <Text style={{ color: BrandColors.textSecondary, textAlign: 'center', lineHeight: 20 }}>
-                  기억하고 싶은 일이나 걱정되는 점을 이야기해봐요!{"\n"} 해마가 함께 정리해드려요.
+          <View style={{ flex: 1 }}>
+            {blockingMessage ? (
+              <View
+                style={{
+                  borderWidth: 1,
+                  borderColor: BrandColors.border,
+                  borderRadius: 18,
+                  backgroundColor: BrandColors.surfaceSoft,
+                  paddingHorizontal: 16,
+                  paddingVertical: 18,
+                  alignItems: 'center',
+                  gap: 8,
+                  flex: 1,
+                  justifyContent: 'center',
+                }}>
+                <ActivityIndicator size="large" color={BrandColors.primary} />
+                <Text style={{ color: BrandColors.textPrimary, fontWeight: '800', textAlign: 'center', fontSize: 18 }}>
+                  {blockingMessage}
+                </Text>
+                <Text style={{ color: BrandColors.textSecondary, fontSize: 12, textAlign: 'center', lineHeight: 20 }}>
+                  잠시만 기다려주세요. 작업이 끝나면 자동으로 해제됩니다.
                 </Text>
               </View>
-            }
-            ListFooterComponent={isResponding ? <TypingIndicator /> : <View style={{ height: 24 }} />}
-          />
+            ) : (
+              <View style={{ flex: 1, justifyContent: 'space-between' }}>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 10,
+                    borderWidth: 1,
+                    borderColor: BrandColors.border,
+                    borderRadius: 18,
+                    paddingVertical: 6,
+                    paddingHorizontal: 12,
+                    backgroundColor: BrandColors.surfaceSoft,
+                  }}>
+                  <TextInput
+                    style={{
+                      flex: 1,
+                      minHeight: 20,
+                      maxHeight: 96,
+                      color: BrandColors.textPrimary,
+                      fontSize: 16,
+                      textAlignVertical: 'center',
+                    }}
+                    value={textInput}
+                    onChangeText={setTextInput}
+                    placeholder="텍스트로 입력할 수 있어요!"
+                    placeholderTextColor={BrandColors.textSecondary}
+                    multiline
+                    maxLength={400}
+                    editable={!blockingMessage}
+                    returnKeyType="send"
+                    blurOnSubmit
+                    onSubmitEditing={handleSendTextMessage}
+                  />
+                  <Pressable
+                    onPress={handleSendTextMessage}
+                    disabled={!textInput.trim() || Boolean(blockingMessage)}
+                    style={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: 22,
+                      backgroundColor: !textInput.trim() || blockingMessage ? BrandColors.surface : BrandColors.primary,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}>
+                    <Ionicons
+                      name="send"
+                      size={20}
+                      color={!textInput.trim() || blockingMessage ? BrandColors.textSecondary : '#fff'}
+                    />
+                  </Pressable>
+                </View>
+                <View style={{ alignItems: 'center', marginTop: 14 }}>
+                  <RecordButton
+                    recording={isRecording}
+                    level={recordingLevel}
+                    countdownRatio={Math.max(0, Math.min(1, recordingRemainingMs / MAX_RECORDING_DURATION_MS))}
+                    countdownMs={recordingRemainingMs}
+                    onPress={handleToggleRecording}
+                    disabled={Boolean(blockingMessage)}
+                  />
+                </View>
+              </View>
+            )}
+          </View>
         </View>
-      </View>
-
-      <View
-        style={{
-          paddingHorizontal: 20,
-          paddingTop: 12,
-          paddingBottom: 12 + insets.bottom,
-          borderTopWidth: 1,
-          borderColor: BrandColors.border,
-          backgroundColor: BrandColors.surface,
-        }}>
-        <View style={{ alignItems: 'center' }}>
-          <RecordButton
-            recording={isRecording}
-            level={recordingLevel}
-            countdownRatio={Math.max(0, Math.min(1, recordingRemainingMs / MAX_RECORDING_DURATION_MS))}
-            countdownMs={recordingRemainingMs}
-            onPress={handleToggleRecording}
-            disabled={isResponding || isTranscribing}
-          />
-        </View>
-      </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
