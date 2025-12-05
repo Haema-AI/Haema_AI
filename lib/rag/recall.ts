@@ -18,9 +18,10 @@ export async function generateRecallQuestion(options?: { excludeChunkIds?: strin
   const filtered = chunks.filter((c) => !excludeChunkIds.includes(c.id));
   const candidates = filtered.length > 0 ? filtered : chunks;
 
-  // 최근순 정렬된 상태에서 상위 몇 개 중 랜덤 추출
+  // 최근순 정렬된 상태에서 가장 최신 chunk 우선 사용
   const pool = candidates.slice(0, 50);
-  const pick = pool[Math.floor(Math.random() * pool.length)];
+  const pick = pool[0] ?? candidates[0];
+  if (!pick) return null;
   const trimmed = pick.chunk.replace(/\s+/g, ' ').trim();
   const shortSnippet = snippet(trimmed, 90);
 

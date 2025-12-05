@@ -12,6 +12,7 @@
       background: #fdf8e4;
       font-family: 'Pretendard', 'Noto Sans KR', 'Apple SD Gothic Neo', 'Segoe UI', sans-serif;
       color: #2f2a19;
+      font-size: 15px;
     }
     .container {
       width: 100%;
@@ -44,13 +45,13 @@
     }
     .title {
       margin: 12px 0 0;
-      font-size: 24px;
+      font-size: 26px;
       font-weight: 800;
       letter-spacing: -0.4px;
     }
     .subtitle {
-      margin: 4px 0 0;
-      font-size: 15px;
+      margin: 6px 0 0;
+      font-size: 16px;
       color: #4b452c;
       letter-spacing: -0.2px;
     }
@@ -62,7 +63,7 @@
       border-bottom: none;
     }
     .section-title {
-      font-size: 16px;
+      font-size: 17px;
       font-weight: 800;
       margin: 0 0 10px;
       color: #2f2a19;
@@ -90,16 +91,22 @@
       background: #ffffff;
     }
     .stat-label {
-      font-size: 13px;
+      font-size: 14px;
       color: #6f6542;
       margin: 0 0 6px;
     }
     .stat-value {
-      font-size: 22px;
+      font-size: 24px;
       font-weight: 800;
       color: #2f2a19;
       margin: 0;
       letter-spacing: -0.2px;
+    }
+    .stat-score {
+      font-size: 14px;
+      font-weight: 700;
+      color: #6f6542;
+      margin-left: 8px;
     }
     .stat-delta {
       font-size: 12px;
@@ -135,24 +142,14 @@
       border-collapse: collapse;
     }
     .table td {
-      padding: 10px 0;
+      padding: 12px 0;
       border-bottom: 1px solid #f0e2b6;
-      font-size: 14px;
+      font-size: 15px;
       color: #2f2a19;
     }
     .table td:last-child {
       text-align: right;
       color: #6f6542;
-    }
-    .cta {
-      display: inline-block;
-      padding: 12px 18px;
-      background: #2f2a19;
-      color: #ffffff;
-      border-radius: 12px;
-      font-weight: 800;
-      text-decoration: none;
-      letter-spacing: -0.2px;
     }
     @media (max-width: 640px) {
       .card {
@@ -178,9 +175,13 @@
 
       <div class="section">
         <div style="display: flex; justify-content: center;">
-          <div class="stat-card" style="background: linear-gradient(135deg, rgba(247,201,72,0.18), rgba(159,219,92,0.18)); width: 360px; text-align: left;">
-            <div class="stat-label">AI 치매 예측 위험도</div>
-            <p class="stat-value" style="font-size: 26px;">{{dementiaRiskLabel}}<span class="stat-delta">{{dementiaRiskDelta}}</span></p>
+          <div class="stat-card" style="background: linear-gradient(135deg, rgba(247,201,72,0.18), rgba(159,219,92,0.18)); width: 92%; max-width: 620px; text-align: center; padding: 20px;">
+            <div class="stat-label" style="text-align: center;">AI 치매 예측 위험도</div>
+            <p class="stat-value" style="font-size: 26px;">
+              {{dementiaRiskLabel}}
+              <span class="stat-score">{{dementiaRiskScore}} / 100</span>
+              <span class="stat-delta">{{dementiaRiskDelta}}</span>
+            </p>
             <div class="progress-wrap">
               <div class="progress-bar" style="width: {{dementiaRiskPercent}}%;"></div>
             </div>
@@ -233,10 +234,6 @@
         </table>
       </div>
 
-      <div class="section" style="text-align: center;">
-        <a class="cta" href="{{appDeepLink}}">해마에서 자세히 보기</a>
-        <div style="margin-top: 10px; font-size: 12px; color: #6f6542;">앱을 열어 세부 기록과 대화 로그를 확인하세요.</div>
-      </div>
     </div>
   </div>
 </body>
