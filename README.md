@@ -46,6 +46,20 @@
   <img width="200" alt="image" src="https://github.com/user-attachments/assets/19b391e0-4bab-4585-ba51-65d94b82976e" />
 </p>
 
+
+### 자체 개발 AI모델 기반 치매 위험도 예측 서비스
+- **실제 데이터 기반**: DementiaBank(University of Pittsburgh) 치매/정상 발화 데이터 사용
+- **음성/언어학 지표 사용**: 언어·음성 지표 6종 추출, 3-layer MLP 분류
+- **정확도 및 경량화**: Accuracy 82%, ROC-AUC 0.8955, Mobile TFLite 최적화. `assets/dementia_model.tflite`
+
+<p align="center">
+  <img width="200" alt="스크린샷 2025-12-05 20 18 46" src="https://github.com/user-attachments/assets/6efbcf52-b183-49b6-a1fd-70258793620d" />
+  <img width="200" alt="스크린샷 2025-12-05 20 18 55" src="https://github.com/user-attachments/assets/4d9be622-a01d-4e42-8b04-f5015094ed9d" />
+  <img width="240" alt="스크린샷 2025-12-04 17 57 52" src="https://github.com/user-attachments/assets/55861786-608a-4f37-9530-ccaba15aa005" />
+  <img width="200" alt="스크린샷 2025-12-05 20 19 29" src="https://github.com/user-attachments/assets/51a1d543-7041-43d5-b45e-ff72f47a9318" />
+</p>
+
+
 ### 👨‍👩‍👧‍👦 가족과 함께하는 협력적 돌봄
 - **보호자 연동**: 사용자의 동의 하에 보호자 계정을 연동할 수 있습니다.
 - **자동 리포트 전송**: 주간/월간 지표 요약, 위험도 변화, 활동 내역 등을 담은 리포트를 보호자에게 이메일로 자동 전송하여 가족이 함께 환자의 상태를 이해하고 돌봄에 참여하도록 돕습니다.
